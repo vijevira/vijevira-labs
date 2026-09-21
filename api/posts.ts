@@ -23,33 +23,51 @@ function parseIds(value: unknown) {
   return [...new Set(value.map(Number).filter((n) => Number.isInteger(n) && n > 0))];
 }
 
-async function syncRelations(postId: number, tagIds: number[], technologyIds: number[], toolIds: number[], projectIds: number[]) {
+async function syncRelations(postId: number, categoryIds: number[], tagIds: number[], technologyIds: number[], toolIds: number[], projectIds: number[], relatedPostIds: number[]) {
+  await sqlite.execute("DELETE FROM post_categories WHERE post_id = ?", [postId]);
   await sqlite.execute("DELETE FROM post_tags WHERE post_id = ?", [postId]);
   await sqlite.execute("DELETE FROM post_technologies WHERE post_id = ?", [postId]);
   await sqlite.execute("DELETE FROM post_tools WHERE post_id = ?", [postId]);
   await sqlite.execute("DELETE FROM post_projects WHERE post_id = ?", [postId]);
+  await sqlite.execute("DELETE FROM related_posts WHERE post_id = ?", [postId]);
+  for (const id of categoryIds) await sqlite.execute("INSERT OR IGNORE INTO post_categories (post_id, category_id) VALUES (?, ?)", [postId, id]);
   for (const id of tagIds) await sqlite.execute("INSERT OR IGNORE INTO post_tags (post_id, tag_id) VALUES (?, ?)", [postId, id]);
   for (const id of technologyIds) await sqlite.execute("INSERT OR IGNORE INTO post_technologies (post_id, technology_id) VALUES (?, ?)", [postId, id]);
   for (const id of toolIds) await sqlite.execute("INSERT OR IGNORE INTO post_tools (post_id, tool_id) VALUES (?, ?)", [postId, id]);
   for (const id of projectIds) await sqlite.execute("INSERT OR IGNORE INTO post_projects (post_id, project_id) VALUES (?, ?)", [postId, id]);
+  for (const id of relatedPostIds) if (id !== postId) await sqlite.execute("INSERT OR IGNORE INTO related_posts (post_id, related_post_id) VALUES (?, ?)", [postId, id]);
+  await sqlite.execute("UPDATE posts SET category_id = ? WHERE id = ?", [categoryIds[0] || null, postId]);
 }
 
 async function getPost(id: number) {
   const result = await sqlite.execute(`
-    SELECT p.*, c.name AS category_name, c.slug AS category_slug,
-      m.url AS cover_url, m.url AS cover_secure_url
+    SELECT p.*, 
+      (SELECT GROUP_CONCAT(c.name, ', ') FROM categories c JOIN post_categories pc ON pc.category_id = c.id WHERE pc.post_id = p.id) AS category_name,
+      (SELECT GROUP_CONCAT(c.slug, ', ') FROM categories c JOIN post_categories pc ON pc.category_id = c.id WHERE pc.post_id = p.id) AS category_slug,
+      m.url AS cover_url, m.secure_url AS cover_secure_url
     FROM posts p
-    LEFT JOIN categories c ON c.id = p.category_id
     LEFT JOIN media m ON m.id = p.cover_image_id
     WHERE p.id = ? LIMIT 1
   `, [id]);
   const post = result.rows[0] as any;
   if (!post) return null;
+  const categories = await sqlite.execute("SELECT c.id, c.name, c.slug FROM categories c JOIN post_categories pc ON pc.category_id = c.id WHERE pc.post_id = ? ORDER BY c.name", [id]);
   const tags = await sqlite.execute("SELECT t.id, t.name, t.slug FROM tags t JOIN post_tags pt ON pt.tag_id = t.id WHERE pt.post_id = ? ORDER BY t.name", [id]);
   const technologies = await sqlite.execute("SELECT t.id, t.name, t.slug FROM technologies t JOIN post_technologies pt ON pt.technology_id = t.id WHERE pt.post_id = ? ORDER BY t.name", [id]);
   const tools = await sqlite.execute("SELECT t.id, t.name, t.slug FROM tools t JOIN post_tools pt ON pt.tool_id = t.id WHERE pt.post_id = ? ORDER BY t.name", [id]);
   const projects = await sqlite.execute("SELECT p.id, p.name, p.slug FROM projects p JOIN post_projects pp ON pp.project_id = p.id WHERE pp.post_id = ? ORDER BY p.name", [id]);
-  return { ...post, tags: tags.rows, technologies: technologies.rows, tools: tools.rows, projects: projects.rows };
+  const relatedPosts = await sqlite.execute("SELECT p.id, p.title, p.slug, p.status FROM posts p JOIN related_posts rp ON rp.related_post_id = p.id WHERE rp.post_id = ? ORDER BY p.title", [id]);
+  return {
+    ...post,
+    categories: categories.rows,
+    category_ids: (categories.rows as any[]).map((x) => Number(x.id)),
+    tags: tags.rows,
+    technologies: technologies.rows,
+    tools: tools.rows,
+    projects: projects.rows,
+    related_posts: relatedPosts.rows,
+    related_post_ids: (relatedPosts.rows as any[]).map((x) => Number(x.id)),
+  };
 }
 
 posts.get("/", async (c) => {
@@ -69,7 +87,10 @@ posts.get("/", async (c) => {
   const params: unknown[] = [];
   if (status) { where.push("p.status = ?"); params.push(status); }
   if (type) { where.push("p.content_type = ?"); params.push(type); }
-  if (categoryId) { where.push("p.category_id = ?"); params.push(Number(categoryId)); }
+  if (categoryId) {
+    where.push("(p.category_id = ? OR EXISTS (SELECT 1 FROM post_categories pc WHERE pc.post_id = p.id AND pc.category_id = ?))");
+    params.push(Number(categoryId), Number(categoryId));
+  }
   if (q) { where.push("(p.title LIKE ? OR p.description LIKE ?)"); params.push(`%${q}%`, `%${q}%`); }
   const clause = where.length ? "WHERE " + where.join(" AND ") : "";
   const count = await sqlite.execute(`SELECT COUNT(*) AS total FROM posts p ${clause}`, params);
@@ -77,8 +98,9 @@ posts.get("/", async (c) => {
   const offset = (page - 1) * limit;
   const result = await sqlite.execute(`
     SELECT p.id,p.title,p.slug,p.description,p.content_type,p.status,p.featured,p.reading_time,p.published_at,p.created_at,p.updated_at,
-      c.name AS category_name, m.url AS cover_secure_url
-    FROM posts p LEFT JOIN categories c ON c.id=p.category_id LEFT JOIN media m ON m.id=p.cover_image_id
+      (SELECT GROUP_CONCAT(c.name, ', ') FROM categories c JOIN post_categories pc ON pc.category_id=c.id WHERE pc.post_id=p.id) AS category_name,
+      m.secure_url AS cover_secure_url
+    FROM posts p LEFT JOIN media m ON m.id=p.cover_image_id
     ${clause} ORDER BY COALESCE(p.published_at,p.created_at) DESC LIMIT ? OFFSET ?
   `, [...params, limit, offset]);
   return c.json({ data: result.rows, pagination: { page, limit, total } });
@@ -113,14 +135,15 @@ posts.post("/", requireAuth, async (c) => {
   const duplicate = await sqlite.execute("SELECT id FROM posts WHERE slug = ? LIMIT 1", [slug]);
   if (duplicate.rows.length) return error(c, 409, "SLUG_EXISTS", "A post with this slug already exists.");
   const publishedAt = status === "published" ? String(body.published_at || new Date().toISOString()) : (body.published_at ? String(body.published_at) : null);
+  const categoryIds = parseIds(body.category_ids !== undefined ? body.category_ids : (body.category_id !== undefined ? [body.category_id] : []));
   const result = await sqlite.execute(
     `INSERT INTO posts (title,slug,description,content,content_type,status,cover_image_id,category_id,featured,seo_title,seo_description,reading_time,published_at)
      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-    [title, slug, body.description ? String(body.description) : null, content, contentType, status, body.cover_image_id ? Number(body.cover_image_id) : null, body.category_id ? Number(body.category_id) : null, body.featured ? 1 : 0, body.seo_title ? String(body.seo_title) : null, body.seo_description ? String(body.seo_description) : null, readingTime(content), publishedAt],
+    [title, slug, body.description ? String(body.description) : null, content, contentType, status, body.cover_image_id ? Number(body.cover_image_id) : null, categoryIds[0] || null, body.featured ? 1 : 0, body.seo_title ? String(body.seo_title) : null, body.seo_description ? String(body.seo_description) : null, readingTime(content), publishedAt],
   );
   const idResult = await sqlite.execute("SELECT last_insert_rowid() AS id");
   const id = Number((idResult.rows[0] as any)?.id);
-  await syncRelations(id, parseIds(body.tag_ids), parseIds(body.technology_ids), parseIds(body.tool_ids), parseIds(body.project_ids));
+  await syncRelations(id, categoryIds, parseIds(body.tag_ids), parseIds(body.technology_ids), parseIds(body.tool_ids), parseIds(body.project_ids), parseIds(body.related_post_ids));
   return c.json({ data: await getPost(id) }, 201);
 });
 
@@ -137,21 +160,26 @@ posts.put("/:id", requireAuth, async (c) => {
   const slug = slugify(String(body.slug ?? existing.slug));
   const duplicate = await sqlite.execute("SELECT id FROM posts WHERE slug = ? AND id != ? LIMIT 1", [slug, id]);
   if (duplicate.rows.length) return error(c, 409, "SLUG_EXISTS", "A post with this slug already exists.");
+  const categoryIds = body.category_ids !== undefined
+    ? parseIds(body.category_ids)
+    : (body.category_id !== undefined
+      ? parseIds([body.category_id])
+      : (existing.category_ids || existing.category_ids === [] ? existing.category_ids : existing.categories.map((x: any) => Number(x.id))));
   let publishedAt = body.published_at === null ? null : (body.published_at !== undefined ? String(body.published_at) : existing.published_at);
   if (status === "published" && !publishedAt) publishedAt = new Date().toISOString();
   await sqlite.execute(
     `UPDATE posts SET title=?,slug=?,description=?,content=?,content_type=?,status=?,cover_image_id=?,category_id=?,featured=?,seo_title=?,seo_description=?,reading_time=?,published_at=?,updated_at=CURRENT_TIMESTAMP WHERE id=?`,
-    [title, slug, body.description !== undefined ? (body.description ? String(body.description) : null) : existing.description, content, contentType, status, body.cover_image_id !== undefined ? (body.cover_image_id ? Number(body.cover_image_id) : null) : existing.cover_image_id, body.category_id !== undefined ? (body.category_id ? Number(body.category_id) : null) : existing.category_id, body.featured !== undefined ? (body.featured ? 1 : 0) : existing.featured, body.seo_title !== undefined ? (body.seo_title ? String(body.seo_title) : null) : existing.seo_title, body.seo_description !== undefined ? (body.seo_description ? String(body.seo_description) : null) : existing.seo_description, readingTime(content), publishedAt, id],
+    [title, slug, body.description !== undefined ? (body.description ? String(body.description) : null) : existing.description, content, contentType, status, body.cover_image_id !== undefined ? (body.cover_image_id ? Number(body.cover_image_id) : null) : existing.cover_image_id, categoryIds[0] || null, body.featured !== undefined ? (body.featured ? 1 : 0) : existing.featured, body.seo_title !== undefined ? (body.seo_title ? String(body.seo_title) : null) : existing.seo_title, body.seo_description !== undefined ? (body.seo_description ? String(body.seo_description) : null) : existing.seo_description, readingTime(content), publishedAt, id],
   );
-  if (body.tag_ids !== undefined || body.technology_ids !== undefined || body.tool_ids !== undefined || body.project_ids !== undefined) {
-    await syncRelations(
-      id,
-      body.tag_ids !== undefined ? parseIds(body.tag_ids) : existing.tags.map((x: any) => Number(x.id)),
-      body.technology_ids !== undefined ? parseIds(body.technology_ids) : existing.technologies.map((x: any) => Number(x.id)),
-      body.tool_ids !== undefined ? parseIds(body.tool_ids) : existing.tools.map((x: any) => Number(x.id)),
-      body.project_ids !== undefined ? parseIds(body.project_ids) : existing.projects.map((x: any) => Number(x.id)),
-    );
-  }
+  await syncRelations(
+    id,
+    categoryIds,
+    body.tag_ids !== undefined ? parseIds(body.tag_ids) : existing.tags.map((x: any) => Number(x.id)),
+    body.technology_ids !== undefined ? parseIds(body.technology_ids) : existing.technologies.map((x: any) => Number(x.id)),
+    body.tool_ids !== undefined ? parseIds(body.tool_ids) : existing.tools.map((x: any) => Number(x.id)),
+    body.project_ids !== undefined ? parseIds(body.project_ids) : existing.projects.map((x: any) => Number(x.id)),
+    body.related_post_ids !== undefined ? parseIds(body.related_post_ids) : existing.related_post_ids.map((x: any) => Number(x)),
+  );
   return c.json({ data: await getPost(id) });
 });
 
