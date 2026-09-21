@@ -73,6 +73,14 @@ posts.get("/", async (c) => {
   return c.json({ data: result.rows, pagination: { page, limit, total } });
 });
 
+posts.get("/slug/:slug", async (c) => {
+  await initDatabase();
+  const result = await sqlite.execute("SELECT id FROM posts WHERE slug = ? AND status = 'published' LIMIT 1", [c.req.param("slug")]);
+  if (!result.rows.length) return error(c, 404, "POST_NOT_FOUND", "Post not found");
+  const post = await getPost(Number((result.rows[0] as any).id));
+  return post ? c.json({ data: post }) : error(c, 404, "POST_NOT_FOUND", "Post not found");
+});
+
 posts.get("/:id", async (c) => {
   await initDatabase();
   const post = await getPost(Number(c.req.param("id")));
@@ -99,7 +107,8 @@ posts.post("/", requireAuth, async (c) => {
      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`,
     [title, slug, body.description ? String(body.description) : null, content, contentType, status, body.cover_image_id ? Number(body.cover_image_id) : null, body.category_id ? Number(body.category_id) : null, body.featured ? 1 : 0, body.seo_title ? String(body.seo_title) : null, body.seo_description ? String(body.seo_description) : null, readingTime(content), publishedAt],
   );
-  const id = Number((result.rows[0] as any)?.id);
+  const idResult = await sqlite.execute("SELECT last_insert_rowid() AS id");
+  const id = Number((idResult.rows[0] as any)?.id);
   await syncRelations(id, parseIds(body.tag_ids), parseIds(body.technology_ids));
   return c.json({ data: await getPost(id) }, 201);
 });
