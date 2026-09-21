@@ -8,24 +8,94 @@ const nav = [
 ];
 
 function AdminShell({ children }: { children: any }) {
-  return <div class="min-h-screen bg-gray-50 text-gray-900">
-    <aside class="fixed inset-y-0 left-0 w-60 border-r border-gray-200 bg-white p-5">
-      <a href="/admin" class="block text-lg font-semibold mb-8">Vijevira Labs</a>
-      <p class="text-xs uppercase tracking-wider text-gray-400 mb-3">Admin</p>
-      <nav class="space-y-1">{nav.map(([href,label]) => <a href={href} class="block rounded-lg px-3 py-2 text-sm text-gray-600 hover:bg-gray-100">{label}</a>)}</nav>
-      <a href="/" class="absolute bottom-5 left-5 text-sm text-gray-500">← View site</a>
+  const [user, setUser] = useState<any>(null);
+  const [checking, setChecking] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/auth/me", { credentials: "include" })
+      .then(async (r) => {
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(d.error?.message || "Unauthenticated");
+        return d.data;
+      })
+      .then((data) => {
+        setUser(data);
+        setChecking(false);
+      })
+      .catch(() => {
+        window.location.replace("/admin/login");
+      });
+  }, []);
+
+  const logout = async () => {
+    try {
+      await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
+    } finally {
+      window.location.replace("/admin/login");
+    }
+  };
+
+  if (checking) {
+    return <div className="min-h-screen bg-gray-50 flex items-center justify-center text-sm text-gray-500">Checking session…</div>;
+  }
+
+  return <div className="min-h-screen bg-gray-50 text-gray-900">
+    <aside className="fixed inset-y-0 left-0 w-60 border-r border-gray-200 bg-white p-5 flex flex-col">
+      <a href="/admin" className="block text-lg font-semibold mb-8">Vijevira Labs</a>
+      <p className="text-xs uppercase tracking-wider text-gray-400 mb-3">Admin</p>
+      <nav className="space-y-1 flex-1">{nav.map(([href,label]) => <a key={href} href={href} className="block rounded-lg px-3 py-2 text-sm text-gray-600 hover:bg-gray-100">{label}</a>)}</nav>
+      <div className="border-t pt-4">
+        <p className="text-xs text-gray-500 truncate mb-3">{user?.email}</p>
+        <button type="button" onClick={logout} className="text-sm text-red-600 hover:text-red-700">Sign out</button>
+        <a href="/" className="block mt-3 text-sm text-gray-500">← View site</a>
+      </div>
     </aside>
-    <main class="ml-60 min-h-screen p-8">{children}</main>
+    <main className="ml-60 min-h-screen p-8">{children}</main>
   </div>;
 }
 
 function Login() {
-  return <div class="min-h-screen bg-gray-50 flex items-center justify-center px-6"><form id="login-form" class="w-full max-w-sm rounded-2xl border border-gray-200 bg-white p-7 shadow-sm">
-    <h1 class="text-2xl font-semibold">Vijevira Labs</h1><p class="mt-1 text-sm text-gray-500">Admin sign in</p>
-    <label class="block mt-7 text-sm font-medium">Email<input id="email" type="email" required class="mt-2 w-full rounded-lg border border-gray-300 px-3 py-2"/></label>
-    <label class="block mt-4 text-sm font-medium">Password<input id="password" type="password" required class="mt-2 w-full rounded-lg border border-gray-300 px-3 py-2"/></label>
-    <p id="error" class="hidden mt-4 text-sm text-red-600"></p><button class="mt-6 w-full rounded-lg bg-gray-900 px-4 py-2.5 text-sm font-medium text-white">Sign in</button>
-  </form><script dangerouslySetInnerHTML={{__html:`document.getElementById("login-form").addEventListener("submit",async(e)=>{e.preventDefault();const x=document.getElementById("error");const r=await fetch("/api/auth/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:document.getElementById("email").value,password:document.getElementById("password").value})});const d=await r.json();if(!r.ok){x.textContent=d.error?.message||"Sign in failed";x.classList.remove("hidden");return}location.href="/admin"});`}}/></div>;
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const submit = async (e: any) => {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
+    try {
+      const r = await fetch("/api/auth/login", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(d.error?.message || "Sign in failed");
+      window.location.replace("/admin");
+    } catch (e: any) {
+      setError(e.message || "Sign in failed");
+      setLoading(false);
+    }
+  };
+
+  return <div className="min-h-screen bg-gray-50 flex items-center justify-center px-6">
+    <form onSubmit={submit} className="w-full max-w-sm rounded-2xl border border-gray-200 bg-white p-7 shadow-sm">
+      <h1 className="text-2xl font-semibold">Vijevira Labs</h1>
+      <p className="mt-1 text-sm text-gray-500">Admin sign in</p>
+      <label className="block mt-7 text-sm font-medium">Email
+        <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" autoComplete="username" required className="mt-2 w-full rounded-lg border border-gray-300 px-3 py-2" />
+      </label>
+      <label className="block mt-4 text-sm font-medium">Password
+        <input value={password} onChange={(e) => setPassword(e.target.value)} type="password" autoComplete="current-password" required className="mt-2 w-full rounded-lg border border-gray-300 px-3 py-2" />
+      </label>
+      {error && <p className="mt-4 text-sm text-red-600">{error}</p>}
+      <button type="submit" disabled={loading} className="mt-6 w-full rounded-lg bg-gray-900 px-4 py-2.5 text-sm font-medium text-white disabled:opacity-50">
+        {loading ? "Signing in…" : "Sign in"}
+      </button>
+    </form>
+  </div>;
 }
 
 function Dashboard(){return <AdminShell><h1 class="text-3xl font-semibold">Dashboard</h1><p class="mt-2 text-gray-500">Manage your engineering content and research.</p><div class="mt-8 grid grid-cols-1 md:grid-cols-3 gap-5"><a href="/admin/posts" class="rounded-xl border bg-white p-5"><p class="text-sm text-gray-500">Content</p><p class="mt-2 text-xl font-semibold">Posts</p></a><a href="/admin/research" class="rounded-xl border bg-white p-5"><p class="text-sm text-gray-500">Knowledge</p><p class="mt-2 text-xl font-semibold">Research</p></a><a href="/admin/media" class="rounded-xl border bg-white p-5"><p class="text-sm text-gray-500">Assets</p><p class="mt-2 text-xl font-semibold">Media</p></a></div></AdminShell>}
