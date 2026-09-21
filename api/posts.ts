@@ -23,11 +23,15 @@ function parseIds(value: unknown) {
   return [...new Set(value.map(Number).filter((n) => Number.isInteger(n) && n > 0))];
 }
 
-async function syncRelations(postId: number, tagIds: number[], technologyIds: number[]) {
+async function syncRelations(postId: number, tagIds: number[], technologyIds: number[], toolIds: number[], projectIds: number[]) {
   await sqlite.execute("DELETE FROM post_tags WHERE post_id = ?", [postId]);
   await sqlite.execute("DELETE FROM post_technologies WHERE post_id = ?", [postId]);
+  await sqlite.execute("DELETE FROM post_tools WHERE post_id = ?", [postId]);
+  await sqlite.execute("DELETE FROM post_projects WHERE post_id = ?", [postId]);
   for (const id of tagIds) await sqlite.execute("INSERT OR IGNORE INTO post_tags (post_id, tag_id) VALUES (?, ?)", [postId, id]);
   for (const id of technologyIds) await sqlite.execute("INSERT OR IGNORE INTO post_technologies (post_id, technology_id) VALUES (?, ?)", [postId, id]);
+  for (const id of toolIds) await sqlite.execute("INSERT OR IGNORE INTO post_tools (post_id, tool_id) VALUES (?, ?)", [postId, id]);
+  for (const id of projectIds) await sqlite.execute("INSERT OR IGNORE INTO post_projects (post_id, project_id) VALUES (?, ?)", [postId, id]);
 }
 
 async function getPost(id: number) {
@@ -43,11 +47,18 @@ async function getPost(id: number) {
   if (!post) return null;
   const tags = await sqlite.execute("SELECT t.id, t.name, t.slug FROM tags t JOIN post_tags pt ON pt.tag_id = t.id WHERE pt.post_id = ? ORDER BY t.name", [id]);
   const technologies = await sqlite.execute("SELECT t.id, t.name, t.slug FROM technologies t JOIN post_technologies pt ON pt.technology_id = t.id WHERE pt.post_id = ? ORDER BY t.name", [id]);
-  return { ...post, tags: tags.rows, technologies: technologies.rows };
+  const tools = await sqlite.execute("SELECT t.id, t.name, t.slug FROM tools t JOIN post_tools pt ON pt.tool_id = t.id WHERE pt.post_id = ? ORDER BY t.name", [id]);
+  const projects = await sqlite.execute("SELECT p.id, p.name, p.slug FROM projects p JOIN post_projects pp ON pp.project_id = p.id WHERE pp.post_id = ? ORDER BY p.name", [id]);
+  return { ...post, tags: tags.rows, technologies: technologies.rows, tools: tools.rows, projects: projects.rows };
 }
 
 posts.get("/", async (c) => {
   await initDatabase();
+  const requestedStatus = c.req.query("status");
+  if (requestedStatus !== "published") {
+    const auth = await requireAuth(c, async () => {});
+    if (auth) return auth;
+  }
   const page = Math.max(1, Number(c.req.query("page") || 1));
   const limit = Math.min(100, Math.max(1, Number(c.req.query("limit") || 20)));
   const status = c.req.query("status");
@@ -81,7 +92,7 @@ posts.get("/slug/:slug", async (c) => {
   return post ? c.json({ data: post }) : error(c, 404, "POST_NOT_FOUND", "Post not found");
 });
 
-posts.get("/:id", async (c) => {
+posts.get("/:id", requireAuth, async (c) => {
   await initDatabase();
   const post = await getPost(Number(c.req.param("id")));
   if (!post) return error(c, 404, "POST_NOT_FOUND", "Post not found");
@@ -109,7 +120,7 @@ posts.post("/", requireAuth, async (c) => {
   );
   const idResult = await sqlite.execute("SELECT last_insert_rowid() AS id");
   const id = Number((idResult.rows[0] as any)?.id);
-  await syncRelations(id, parseIds(body.tag_ids), parseIds(body.technology_ids));
+  await syncRelations(id, parseIds(body.tag_ids), parseIds(body.technology_ids), parseIds(body.tool_ids), parseIds(body.project_ids));
   return c.json({ data: await getPost(id) }, 201);
 });
 
@@ -132,8 +143,14 @@ posts.put("/:id", requireAuth, async (c) => {
     `UPDATE posts SET title=?,slug=?,description=?,content=?,content_type=?,status=?,cover_image_id=?,category_id=?,featured=?,seo_title=?,seo_description=?,reading_time=?,published_at=?,updated_at=CURRENT_TIMESTAMP WHERE id=?`,
     [title, slug, body.description !== undefined ? (body.description ? String(body.description) : null) : existing.description, content, contentType, status, body.cover_image_id !== undefined ? (body.cover_image_id ? Number(body.cover_image_id) : null) : existing.cover_image_id, body.category_id !== undefined ? (body.category_id ? Number(body.category_id) : null) : existing.category_id, body.featured !== undefined ? (body.featured ? 1 : 0) : existing.featured, body.seo_title !== undefined ? (body.seo_title ? String(body.seo_title) : null) : existing.seo_title, body.seo_description !== undefined ? (body.seo_description ? String(body.seo_description) : null) : existing.seo_description, readingTime(content), publishedAt, id],
   );
-  if (body.tag_ids !== undefined || body.technology_ids !== undefined) {
-    await syncRelations(id, body.tag_ids !== undefined ? parseIds(body.tag_ids) : existing.tags.map((x: any) => Number(x.id)), body.technology_ids !== undefined ? parseIds(body.technology_ids) : existing.technologies.map((x: any) => Number(x.id)));
+  if (body.tag_ids !== undefined || body.technology_ids !== undefined || body.tool_ids !== undefined || body.project_ids !== undefined) {
+    await syncRelations(
+      id,
+      body.tag_ids !== undefined ? parseIds(body.tag_ids) : existing.tags.map((x: any) => Number(x.id)),
+      body.technology_ids !== undefined ? parseIds(body.technology_ids) : existing.technologies.map((x: any) => Number(x.id)),
+      body.tool_ids !== undefined ? parseIds(body.tool_ids) : existing.tools.map((x: any) => Number(x.id)),
+      body.project_ids !== undefined ? parseIds(body.project_ids) : existing.projects.map((x: any) => Number(x.id)),
+    );
   }
   return c.json({ data: await getPost(id) });
 });
