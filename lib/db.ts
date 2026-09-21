@@ -26,7 +26,14 @@ const schema = [
   `CREATE INDEX IF NOT EXISTS idx_posts_slug ON posts(slug)`,
   `CREATE INDEX IF NOT EXISTS idx_tools_slug ON tools(slug)`,
   `CREATE INDEX IF NOT EXISTS idx_projects_slug ON projects(slug)`,
-  `CREATE INDEX IF NOT EXISTS idx_research_notes_status ON research_notes(status)`
+  `CREATE INDEX IF NOT EXISTS idx_research_notes_status ON research_notes(status)`,
+  `INSERT OR IGNORE INTO categories (name, slug, description) VALUES ('Engineering','engineering','Production engineering, software development, and practical systems work.')`,
+  `INSERT OR IGNORE INTO categories (name, slug, description) VALUES ('Research','research','Technical research, experiments, and evidence-driven exploration.')`,
+  `INSERT OR IGNORE INTO categories (name, slug, description) VALUES ('Tutorials','tutorials','Step-by-step guides for building and shipping software.')`,
+  `INSERT OR IGNORE INTO categories (name, slug, description) VALUES ('DevOps','devops','Infrastructure, deployment, observability, and operations.')`,
+  `INSERT OR IGNORE INTO categories (name, slug, description) VALUES ('AI','ai','AI engineering, LLMs, agents, and applied machine intelligence.')`,
+  `INSERT OR IGNORE INTO categories (name, slug, description) VALUES ('Architecture','architecture','System design, architecture patterns, and engineering trade-offs.')`,
+  `INSERT OR IGNORE INTO categories (name, slug, description) VALUES ('Free Tools','free-tools','Free and low-cost developer tools, platforms, and services.')`
 ];
 
 export function initDatabase(): Promise<void> {
