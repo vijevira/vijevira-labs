@@ -33,11 +33,28 @@ async function ensureAdmin() {
   const email = Deno.env.get("ADMIN_EMAIL")?.trim().toLowerCase();
   const password = Deno.env.get("ADMIN_PASSWORD");
   if (!email || !password) return false;
+
   const existing = await sqlite.execute("SELECT id FROM users WHERE email = ? LIMIT 1", [email]);
-  if (existing.rows.length) return true;
+  const existingUser = existing.rows[0] as any;
+
+  // Keep the bootstrap admin synchronized with the current Val Town env vars.
+  // This lets changing ADMIN_PASSWORD or correcting ADMIN_EMAIL take effect
+  // without requiring a manual database migration.
   const salt = crypto.getRandomValues(new Uint8Array(16));
   const stored = bytesToBase64(salt) + ":" + await hashPassword(password, salt);
-  await sqlite.execute("INSERT INTO users (email, password_hash, name) VALUES (?, ?, ?)", [email, stored, "Vijevira Labs Admin"]);
+
+  if (existingUser?.id) {
+    await sqlite.execute(
+      "UPDATE users SET password_hash = ?, name = ?, role = 'admin', updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+      [stored, "Vijevira Labs Admin", existingUser.id]
+    );
+    return true;
+  }
+
+  await sqlite.execute(
+    "INSERT INTO users (email, password_hash, name, role) VALUES (?, ?, ?, 'admin')",
+    [email, stored, "Vijevira Labs Admin"]
+  );
   return true;
 }
 
