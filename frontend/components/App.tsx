@@ -1,74 +1,43 @@
 /** @jsxImportSource https://esm.sh/react@18.2.0 */
 
 const nav = [
-  ["/admin", "Dashboard"],
-  ["/admin/posts", "Posts"],
-  ["/admin/research", "Research"],
-  ["/admin/tools", "Tools"],
-  ["/admin/projects", "Projects"],
-  ["/admin/media", "Media"],
-  ["/admin/categories", "Categories"],
-  ["/admin/tags", "Tags"],
-  ["/admin/technologies", "Technologies"],
-  ["/admin/settings", "Settings"],
+  ["/admin", "Dashboard"], ["/admin/posts", "Posts"], ["/admin/research", "Research"],
+  ["/admin/tools", "Tools"], ["/admin/projects", "Projects"], ["/admin/media", "Media"],
+  ["/admin/categories", "Categories"], ["/admin/tags", "Tags"], ["/admin/technologies", "Technologies"], ["/admin/settings", "Settings"],
 ];
 
 function AdminShell({ children }: { children: any }) {
-  return (
-    <div class="min-h-screen bg-gray-50 text-gray-900">
-      <aside class="fixed inset-y-0 left-0 w-60 border-r border-gray-200 bg-white p-5">
-        <a href="/admin" class="block text-lg font-semibold mb-8">Vijevira Labs</a>
-        <p class="text-xs uppercase tracking-wider text-gray-400 mb-3">Admin</p>
-        <nav class="space-y-1">
-          {nav.map(([href, label]) => (
-            <a href={href} class="block rounded-lg px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 hover:text-gray-900">{label}</a>
-          ))}
-        </nav>
-        <a href="/" class="absolute bottom-5 left-5 text-sm text-gray-500 hover:text-gray-900">← View site</a>
-      </aside>
-      <main class="ml-60 min-h-screen p-8">{children}</main>
-    </div>
-  );
+  return <div class="min-h-screen bg-gray-50 text-gray-900">
+    <aside class="fixed inset-y-0 left-0 w-60 border-r border-gray-200 bg-white p-5">
+      <a href="/admin" class="block text-lg font-semibold mb-8">Vijevira Labs</a>
+      <p class="text-xs uppercase tracking-wider text-gray-400 mb-3">Admin</p>
+      <nav class="space-y-1">{nav.map(([href,label]) => <a href={href} class="block rounded-lg px-3 py-2 text-sm text-gray-600 hover:bg-gray-100">{label}</a>)}</nav>
+      <a href="/" class="absolute bottom-5 left-5 text-sm text-gray-500">← View site</a>
+    </aside>
+    <main class="ml-60 min-h-screen p-8">{children}</main>
+  </div>;
 }
 
 function Login() {
-  return (
-    <div class="min-h-screen bg-gray-50 flex items-center justify-center px-6">
-      <form id="login-form" class="w-full max-w-sm rounded-2xl border border-gray-200 bg-white p-7 shadow-sm">
-        <h1 class="text-2xl font-semibold">Vijevira Labs</h1>
-        <p class="mt-1 text-sm text-gray-500">Admin sign in</p>
-        <label class="block mt-7 text-sm font-medium">Email<input id="email" type="email" required class="mt-2 w-full rounded-lg border border-gray-300 px-3 py-2" /></label>
-        <label class="block mt-4 text-sm font-medium">Password<input id="password" type="password" required class="mt-2 w-full rounded-lg border border-gray-300 px-3 py-2" /></label>
-        <p id="error" class="hidden mt-4 text-sm text-red-600"></p>
-        <button class="mt-6 w-full rounded-lg bg-gray-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-gray-700">Sign in</button>
-      </form>
-      <script dangerouslySetInnerHTML={{__html: `
-        document.getElementById("login-form").addEventListener("submit", async (e) => {
-          e.preventDefault();
-          const error = document.getElementById("error");
-          error.classList.add("hidden");
-          const r = await fetch("/api/auth/login", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({email:document.getElementById("email").value,password:document.getElementById("password").value})});
-          const data = await r.json();
-          if (!r.ok) { error.textContent = data.error?.message || "Sign in failed"; error.classList.remove("hidden"); return; }
-          location.href = "/admin";
-        });
-      `}} />
-    </div>
-  );
+  return <div class="min-h-screen bg-gray-50 flex items-center justify-center px-6"><form id="login-form" class="w-full max-w-sm rounded-2xl border border-gray-200 bg-white p-7 shadow-sm">
+    <h1 class="text-2xl font-semibold">Vijevira Labs</h1><p class="mt-1 text-sm text-gray-500">Admin sign in</p>
+    <label class="block mt-7 text-sm font-medium">Email<input id="email" type="email" required class="mt-2 w-full rounded-lg border border-gray-300 px-3 py-2"/></label>
+    <label class="block mt-4 text-sm font-medium">Password<input id="password" type="password" required class="mt-2 w-full rounded-lg border border-gray-300 px-3 py-2"/></label>
+    <p id="error" class="hidden mt-4 text-sm text-red-600"></p><button class="mt-6 w-full rounded-lg bg-gray-900 px-4 py-2.5 text-sm font-medium text-white">Sign in</button>
+  </form><script dangerouslySetInnerHTML={{__html:`document.getElementById("login-form").addEventListener("submit",async(e)=>{e.preventDefault();const x=document.getElementById("error");const r=await fetch("/api/auth/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:document.getElementById("email").value,password:document.getElementById("password").value})});const d=await r.json();if(!r.ok){x.textContent=d.error?.message||"Sign in failed";x.classList.remove("hidden");return}location.href="/admin"});`}}/></div>;
 }
 
-function Dashboard() {
-  return <AdminShell><h1 class="text-3xl font-semibold">Dashboard</h1><p class="mt-2 text-gray-500">Manage your engineering content and research.</p><div class="mt-8 grid grid-cols-1 md:grid-cols-3 gap-5"><a href="/admin/posts" class="rounded-xl border border-gray-200 bg-white p-5 hover:border-gray-400"><p class="text-sm text-gray-500">Content</p><p class="mt-2 text-xl font-semibold">Posts</p></a><a href="/admin/research" class="rounded-xl border border-gray-200 bg-white p-5 hover:border-gray-400"><p class="text-sm text-gray-500">Knowledge</p><p class="mt-2 text-xl font-semibold">Research</p></a><a href="/admin/media" class="rounded-xl border border-gray-200 bg-white p-5 hover:border-gray-400"><p class="text-sm text-gray-500">Assets</p><p class="mt-2 text-xl font-semibold">Media</p></a></div></AdminShell>;
+function Dashboard(){return <AdminShell><h1 class="text-3xl font-semibold">Dashboard</h1><p class="mt-2 text-gray-500">Manage your engineering content and research.</p><div class="mt-8 grid grid-cols-1 md:grid-cols-3 gap-5"><a href="/admin/posts" class="rounded-xl border bg-white p-5"><p class="text-sm text-gray-500">Content</p><p class="mt-2 text-xl font-semibold">Posts</p></a><a href="/admin/research" class="rounded-xl border bg-white p-5"><p class="text-sm text-gray-500">Knowledge</p><p class="mt-2 text-xl font-semibold">Research</p></a><a href="/admin/media" class="rounded-xl border bg-white p-5"><p class="text-sm text-gray-500">Assets</p><p class="mt-2 text-xl font-semibold">Media</p></a></div></AdminShell>}
+
+function Posts() {
+  const isNew=location.pathname==="/admin/posts/new";
+  return <AdminShell><div id="posts-app"><div class="flex items-center justify-between"><div><h1 class="text-3xl font-semibold">{isNew?"New post":"Posts"}</h1><p class="mt-2 text-gray-500">{isNew?"Write and publish engineering content.":"Manage your articles, tutorials, research and notes."}</p></div>{!isNew&&<a href="/admin/posts/new" class="rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white">New post</a>}</div><div id="posts-content" class="mt-8"></div></div><script dangerouslySetInnerHTML={{__html:`(async()=>{const root=document.getElementById("posts-content");const path=location.pathname;const edit=path.match(/^\\/admin\\/posts\\/(\\d+)\\/edit$/);if(path==="/admin/posts"||path==="/admin/posts/"){const r=await fetch("/api/posts?limit=100");if(r.status===401){location.href="/admin/login";return}const d=await r.json();root.innerHTML=d.data.length?\`<div class="rounded-xl border bg-white divide-y">\${d.data.map(p=>\`<div class="p-5 flex items-center justify-between"><div><div class="font-medium">\${esc(p.title)}</div><div class="text-xs text-gray-500 mt-1">\${p.status} · \${p.content_type} · \${p.reading_time||1} min</div></div><a class="text-sm text-gray-600 hover:text-gray-900" href="/admin/posts/\${p.id}/edit">Edit</a></div>\`).join("")}</div>\`:"<div class='rounded-xl border bg-white p-10 text-center text-gray-500'>No posts yet. Create your first post.</div>";return}if(path==="/admin/posts/new"||edit){const id=edit?.[1];let p={title:"",slug:"",description:"",content:"",content_type:"article",status:"draft",featured:0,seo_title:"",seo_description:"",category_id:""};if(id){const r=await fetch("/api/posts/"+id);if(r.status===401){location.href="/admin/login";return}if(!r.ok){root.textContent="Post not found";return}p=(await r.json()).data}root.innerHTML=\`<form id="post-form" class="grid grid-cols-1 xl:grid-cols-[1fr_320px] gap-6"><section class="rounded-xl border bg-white p-6 space-y-4"><input id="title" value="\${esc(p.title)}" placeholder="Post title" class="w-full text-3xl font-semibold outline-none border-b pb-3"/><input id="slug" value="\${esc(p.slug)}" placeholder="slug" class="w-full rounded-lg border px-3 py-2 text-sm"/><textarea id="description" placeholder="Short description" class="w-full rounded-lg border px-3 py-2" rows="2">\${esc(p.description)}</textarea><textarea id="content" placeholder="Write in Markdown..." class="w-full min-h-[520px] rounded-lg border px-4 py-3 font-mono text-sm leading-6">\${esc(p.content)}</textarea></section><aside class="space-y-4"><div class="rounded-xl border bg-white p-5 space-y-4"><label class="block text-sm font-medium">Status<select id="status" class="mt-2 w-full rounded-lg border px-3 py-2"><option>draft</option><option>review</option><option>scheduled</option><option>published</option><option>archived</option></select></label><label class="block text-sm font-medium">Content type<select id="content_type" class="mt-2 w-full rounded-lg border px-3 py-2"><option>article</option><option>tutorial</option><option>research</option><option>guide</option><option>comparison</option><option>project_log</option><option>note</option></select></label><label class="flex gap-2 items-center text-sm"><input id="featured" type="checkbox"/> Featured</label><input id="seo_title" value="\${esc(p.seo_title)}" placeholder="SEO title" class="w-full rounded-lg border px-3 py-2 text-sm"/><textarea id="seo_description" placeholder="SEO description" class="w-full rounded-lg border px-3 py-2 text-sm" rows="3">\${esc(p.seo_description)}</textarea><button class="w-full rounded-lg bg-gray-900 px-4 py-2.5 text-sm font-medium text-white">Save post</button><a href="/admin/posts" class="block text-center text-sm text-gray-500">Cancel</a><p id="save-error" class="text-sm text-red-600"></p></div></aside></form>`;document.getElementById("status").value=p.status;document.getElementById("content_type").value=p.content_type;document.getElementById("featured").checked=!!p.featured;document.getElementById("post-form").addEventListener("submit",async(e)=>{e.preventDefault();const body={title:v("title"),slug:v("slug"),description:v("description"),content:v("content"),status:v("status"),content_type:v("content_type"),featured:document.getElementById("featured").checked,seo_title:v("seo_title"),seo_description:v("seo_description")};const r=await fetch(id?"/api/posts/"+id:"/api/posts",{method:id?"PUT":"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});const d=await r.json();if(!r.ok){document.getElementById("save-error").textContent=d.error?.message||"Could not save";return}location.href="/admin/posts"});}})();function v(id){return document.getElementById(id).value}function esc(s){return String(s??"").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#039;")}`}}/></div>;
 }
 
-export function App() {
-  const path = window.location.pathname;
-  if (path === "/admin/login") return <Login />;
-  if (path === "/admin" || path.startsWith("/admin/")) return <Dashboard />;
-  return (
-    <div class="min-h-screen bg-white text-gray-900">
-      <header class="border-b border-gray-200"><nav class="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between"><a href="/" class="font-semibold text-lg">Vijevira Labs</a><div class="flex items-center gap-6 text-sm text-gray-600"><a href="/blog">Blog</a><a href="/tools">Tools</a><a href="/projects">Projects</a><a href="/research">Research</a><a href="/about">About</a><a href="/admin/login">Admin</a></div></nav></header>
-      <main class="max-w-6xl mx-auto px-6 py-20"><p class="text-sm font-medium text-gray-500 mb-4">Engineering, Research &amp; Building.</p><h1 class="text-5xl font-bold tracking-tight mb-6">Vijevira Labs</h1><p class="max-w-2xl text-xl leading-8 text-gray-600">Practical engineering notes, research, production lessons, developer tools, and projects built with a focus on useful, real-world systems.</p></main>
-    </div>
-  );
+export function App(){
+  const path=window.location.pathname;
+  if(path==="/admin/login") return <Login/>;
+  if(path==="/admin/posts"||path==="/admin/posts/"||path==="/admin/posts/new"||/^\/admin\/posts\/\d+\/edit$/.test(path)) return <Posts/>;
+  if(path==="/admin"||path.startsWith("/admin/")) return <Dashboard/>;
+  return <div class="min-h-screen bg-white text-gray-900"><header class="border-b border-gray-200"><nav class="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between"><a href="/" class="font-semibold text-lg">Vijevira Labs</a><div class="flex items-center gap-6 text-sm text-gray-600"><a href="/blog">Blog</a><a href="/tools">Tools</a><a href="/projects">Projects</a><a href="/research">Research</a><a href="/about">About</a><a href="/admin/login">Admin</a></div></nav></header><main class="max-w-6xl mx-auto px-6 py-20"><p class="text-sm font-medium text-gray-500 mb-4">Engineering, Research &amp; Building.</p><h1 class="text-5xl font-bold tracking-tight mb-6">Vijevira Labs</h1><p class="max-w-2xl text-xl leading-8 text-gray-600">Practical engineering notes, research, production lessons, developer tools, and projects built with a focus on useful, real-world systems.</p></main></div>;
 }
