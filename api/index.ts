@@ -1,7 +1,9 @@
 import { Hono } from "npm:hono";
 import { initDatabase, sqlite } from "../lib/db.ts";
+import { auth } from "./auth.ts";
 
 export const api = new Hono();
+api.route("/auth", auth);
 
 api.get("/health", async (c) => {
   await initDatabase();
