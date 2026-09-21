@@ -103,20 +103,104 @@ function Dashboard(){return <AdminShell><h1 class="text-3xl font-semibold">Dashb
 const TYPES=["article","tutorial","research","guide","comparison","project_log","note"];
 const STATES=["draft","review","scheduled","published","archived"];
 
-function EnhancedPosts(){
-  const path=location.pathname, edit=path.match(/^\/admin\/posts\/(\d+)\/edit$/), id=edit?.[1];
-  const [items,setItems]=useState<any[]>([]),[cats,setCats]=useState<any[]>([]),[tags,setTags]=useState<any[]>([]),[techs,setTechs]=useState<any[]>([]),[tools,setTools]=useState<any[]>([]),[projects,setProjects]=useState<any[]>([]),[media,setMedia]=useState<any[]>([]),[post,setPost]=useState<any>({title:"",slug:"",description:"",content:"",content_type:"article",status:"draft",featured:false,category_id:"",tag_ids:[],technology_ids:[],cover_image_id:"",seo_title:"",seo_description:""}),[error,setError]=useState("");
-  useEffect(()=>{Promise.all([apiFetch("/api/taxonomy/categories"),apiFetch("/api/taxonomy/tags"),apiFetch("/api/taxonomy/technologies"),apiFetch("/api/content/tools"),apiFetch("/api/content/projects"),apiFetch("/api/content/media").catch(()=>[])]).then(([c,t,te,to,pr,m])=>{setCats(c);setTags(t);setTechs(te);setTools(to);setProjects(pr);setMedia(m)});if(!id) return;apiFetch("/api/posts/"+id).then((p:any)=>setPost({...p,tag_ids:(p.tags||[]).map((x:any)=>Number(x.id)),technology_ids:(p.technologies||[]).map((x:any)=>Number(x.id)),tool_ids:(p.tools||[]).map((x:any)=>Number(x.id)),project_ids:(p.projects||[]).map((x:any)=>Number(x.id))})).catch((e:any)=>setError(e.message))},[id]);
-  const load=()=>apiFetch("/api/posts?limit=100").then(setItems).catch(()=>{});
-  useEffect(()=>{if(!id)load()},[id]);
-  if(path==="/admin/posts"||path==="/admin/posts/"){
-    return <AdminShell><div className="flex items-center justify-between"><div><h1 className="text-3xl font-semibold">Posts</h1><p className="mt-2 text-gray-500">Articles, tutorials, research, guides and notes.</p></div><a href="/admin/posts/new" className="rounded-lg bg-gray-900 px-4 py-2 text-sm text-white">New post</a></div><div className="mt-8 rounded-xl border bg-white divide-y">{items.length?items.map(p=><div className="p-5 flex items-center justify-between gap-4" key={p.id}><div><div className="font-medium">{p.title}</div><div className="text-xs text-gray-500 mt-1">{p.status} · {p.content_type} · {p.category_name||"Uncategorized"}</div></div><div className="flex gap-3 text-sm"><button onClick={async()=>{await apiFetch("/api/posts/"+p.id+"/"+(p.status==="published"?"unpublish":"publish"),{method:"POST"});load()}} className="text-gray-600">{p.status==="published"?"Unpublish":"Publish"}</button><a href={"/admin/posts/"+p.id+"/edit"} className="text-gray-600">Edit</a><button onClick={async()=>{if(confirm("Delete this post?")){await apiFetch("/api/posts/"+p.id,{method:"DELETE"});load()}}} className="text-red-600">Delete</button></div></div>):<div className="p-10 text-center text-gray-500">No posts yet.</div>}</div></AdminShell>
-  }
-  const toggle=(key:string,n:number)=>setPost((p:any)=>({...p,[key]:p[key].includes(n)?p[key].filter((x:number)=>x!==n):[...p[key],n]}));
-  const save=async(e:any)=>{e.preventDefault();setError("");try{await apiFetch(id?"/api/posts/"+id:"/api/posts",{method:id?"PUT":"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(post)});location.href="/admin/posts"}catch(e:any){setError(e.message)}};
-  return <AdminShell><div className="flex justify-between mb-6"><div><h1 className="text-3xl font-semibold">{id?"Edit post":"New post"}</h1><p className="mt-2 text-gray-500">Markdown editor with structured taxonomy and media.</p></div><a href="/admin/posts" className="text-sm text-gray-500">Back</a></div><form onSubmit={save} className="grid xl:grid-cols-[1fr_340px] gap-6"><section className="rounded-xl border bg-white p-6 space-y-4"><input value={post.title} onChange={e=>setPost({...post,title:e.target.value})} placeholder="Title" required className="w-full text-3xl font-semibold border-b pb-3 outline-none"/><input value={post.slug||""} onChange={e=>setPost({...post,slug:e.target.value})} placeholder="Slug" className="w-full rounded-lg border px-3 py-2"/><textarea value={post.description||""} onChange={e=>setPost({...post,description:e.target.value})} placeholder="Description" rows={3} className="w-full rounded-lg border px-3 py-2"/><textarea value={post.content||""} onChange={e=>setPost({...post,content:e.target.value})} placeholder="Write in Markdown..." rows={28} className="w-full rounded-lg border px-4 py-3 font-mono text-sm"/></section><aside className="rounded-xl border bg-white p-5 space-y-4"><label className="block text-sm font-medium">Status<select value={post.status} onChange={e=>setPost({...post,status:e.target.value})} className="mt-2 w-full rounded-lg border px-3 py-2">{STATES.map(x=><option key={x}>{x}</option>)}</select></label><label className="block text-sm font-medium">Content type<select value={post.content_type} onChange={e=>setPost({...post,content_type:e.target.value})} className="mt-2 w-full rounded-lg border px-3 py-2">{TYPES.map(x=><option key={x}>{x}</option>)}</select></label><label className="block text-sm font-medium">Category<select value={post.category_id||""} onChange={e=>setPost({...post,category_id:e.target.value?Number(e.target.value):null})} className="mt-2 w-full rounded-lg border px-3 py-2"><option value="">Uncategorized</option>{cats.map(x=><option key={x.id} value={x.id}>{x.name}</option>)}</select></label><div><div className="text-sm font-medium mb-2">Tags</div><div className="max-h-36 overflow-auto space-y-1">{tags.map(x=><label key={x.id} className="block text-sm text-gray-600"><input type="checkbox" checked={(post.tag_ids||[]).includes(Number(x.id))} onChange={()=>toggle("tag_ids",Number(x.id))}/> {x.name}</label>)}</div></div><div><div className="text-sm font-medium mb-2">Technologies</div><div className="max-h-36 overflow-auto space-y-1">{techs.map(x=><label key={x.id} className="block text-sm text-gray-600"><input type="checkbox" checked={(post.technology_ids||[]).includes(Number(x.id))} onChange={()=>toggle("technology_ids",Number(x.id))}/> {x.name}</label>)}</div></div><div><div className="text-sm font-medium mb-2">Tools</div><div className="max-h-28 overflow-auto space-y-1">{tools.map(x=><label key={x.id} className="block text-sm text-gray-600"><input type="checkbox" checked={(post.tool_ids||[]).includes(Number(x.id))} onChange={()=>toggle("tool_ids",Number(x.id))}/> {x.name}</label>)}</div></div><div><div className="text-sm font-medium mb-2">Projects</div><div className="max-h-28 overflow-auto space-y-1">{projects.map(x=><label key={x.id} className="block text-sm text-gray-600"><input type="checkbox" checked={(post.project_ids||[]).includes(Number(x.id))} onChange={()=>toggle("project_ids",Number(x.id))}/> {x.name}</label>)}</div></div><label className="block text-sm font-medium">Cover image<select value={post.cover_image_id||""} onChange={e=>setPost({...post,cover_image_id:e.target.value?Number(e.target.value):null})} className="mt-2 w-full rounded-lg border px-3 py-2"><option value="">No cover</option>{media.map(x=><option key={x.id} value={x.id}>{x.filename}</option>)}</select></label><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={!!post.featured} onChange={e=>setPost({...post,featured:e.target.checked})}/> Featured</label><input value={post.seo_title||""} onChange={e=>setPost({...post,seo_title:e.target.value})} placeholder="SEO title" className="w-full rounded-lg border px-3 py-2"/><textarea value={post.seo_description||""} onChange={e=>setPost({...post,seo_description:e.target.value})} placeholder="SEO description" rows={3} className="w-full rounded-lg border px-3 py-2"/>{error&&<p className="text-sm text-red-600">{error}</p>}<button className="w-full rounded-lg bg-gray-900 py-2.5 text-sm text-white">Save post</button></aside></form></AdminShell>
+function MultiSelectField({label,items,selected,onToggle,emptyText,createHref}:{label:string,items:any[],selected:number[],onToggle:(id:number)=>void,emptyText:string,createHref:string}){
+  return <div>
+    <div className="flex items-center justify-between gap-3 mb-2">
+      <div className="text-sm font-medium">{label}</div>
+      <span className="text-xs text-gray-400">{selected.length} selected</span>
+    </div>
+    {selected.length>0&&<div className="flex flex-wrap gap-1.5 mb-2">{selected.map(id=>{const x=items.find((v:any)=>Number(v.id)===id);return x?<button type="button" key={id} onClick={()=>onToggle(id)} className="rounded-full bg-gray-100 px-2.5 py-1 text-xs text-gray-700 hover:bg-gray-200">{x.name} ×</button>:null})}</div>}
+    {items.length>0?<div className="max-h-44 overflow-auto rounded-lg border divide-y">
+      {items.map((x:any)=><label key={x.id} className="flex cursor-pointer items-center gap-3 px-3 py-2.5 text-sm hover:bg-gray-50">
+        <input type="checkbox" checked={selected.includes(Number(x.id))} onChange={()=>onToggle(Number(x.id))} className="h-4 w-4 rounded"/>
+        <span className="flex-1">{x.name}</span>
+        {selected.includes(Number(x.id))&&<span className="text-xs text-gray-400">Selected</span>}
+      </label>)}
+    </div>:<div className="rounded-lg border border-dashed p-3 text-sm text-gray-500">{emptyText} <a href={createHref} className="font-medium text-gray-900 underline underline-offset-2">Create one</a></div>}
+  </div>
 }
 
+function EnhancedPosts(){
+  const path=location.pathname, edit=path.match(/^\/admin\/posts\/(\d+)\/edit$/), id=edit?.[1];
+  const [items,setItems]=useState<any[]>([]),[cats,setCats]=useState<any[]>([]),[tags,setTags]=useState<any[]>([]),[techs,setTechs]=useState<any[]>([]),[tools,setTools]=useState<any[]>([]),[projects,setProjects]=useState<any[]>([]),[media,setMedia]=useState<any[]>([]);
+  const [post,setPost]=useState<any>({title:"",slug:"",description:"",content:"",content_type:"article",status:"draft",featured:false,category_ids:[],tag_ids:[],technology_ids:[],tool_ids:[],project_ids:[],related_post_ids:[],cover_image_id:"",seo_title:"",seo_description:""});
+  const [error,setError]=useState(""),[loading,setLoading]=useState(false);
+  const load=()=>apiFetch("/api/posts?limit=100").then(setItems).catch(()=>{});
+  useEffect(()=>{
+    Promise.all([
+      apiFetch("/api/taxonomy/categories"),
+      apiFetch("/api/taxonomy/tags"),
+      apiFetch("/api/taxonomy/technologies"),
+      apiFetch("/api/content/tools"),
+      apiFetch("/api/content/projects"),
+      apiFetch("/api/content/media").catch(()=>[]),
+      apiFetch("/api/posts?limit=100").catch(()=>[])
+    ]).then(([c,t,te,to,pr,m,p])=>{setCats(c);setTags(t);setTechs(te);setTools(to);setProjects(pr);setMedia(m);setItems(p)})
+      .catch((e:any)=>setError(e.message));
+    if(!id)return;
+    apiFetch("/api/posts/"+id)
+      .then((p:any)=>setPost({...p,
+        category_ids:(p.categories||[]).map((x:any)=>Number(x.id)),
+        tag_ids:(p.tags||[]).map((x:any)=>Number(x.id)),
+        technology_ids:(p.technologies||[]).map((x:any)=>Number(x.id)),
+        tool_ids:(p.tools||[]).map((x:any)=>Number(x.id)),
+        project_ids:(p.projects||[]).map((x:any)=>Number(x.id)),
+        related_post_ids:(p.related_posts||[]).map((x:any)=>Number(x.id))
+      }))
+      .catch((e:any)=>setError(e.message))
+  },[id]);
+
+  const toggle=(key:string,n:number)=>setPost((p:any)=>({...p,[key]:(p[key]||[]).includes(n)?p[key].filter((x:number)=>x!==n):[...(p[key]||[]),n]}));
+  const save=async(e:any)=>{
+    e.preventDefault();setError("");setLoading(true);
+    try{
+      await apiFetch(id?"/api/posts/"+id:"/api/posts",{method:id?"PUT":"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(post)});
+      location.href="/admin/posts";
+    }catch(e:any){setError(e.message);setLoading(false)}
+  };
+
+  if(path==="/admin/posts"||path==="/admin/posts/"){
+    return <AdminShell><div className="flex items-center justify-between gap-4"><div><h1 className="text-3xl font-semibold">Posts</h1><p className="mt-2 text-gray-500">Articles, tutorials, research, guides and notes.</p></div><a href="/admin/posts/new" className="rounded-lg bg-gray-900 px-4 py-2 text-sm text-white">New post</a></div><div className="mt-8 rounded-xl border bg-white divide-y">{items.length?items.map(p=><div className="p-5 flex items-center justify-between gap-4" key={p.id}><div><div className="font-medium">{p.title}</div><div className="text-xs text-gray-500 mt-1">{p.status} · {p.content_type} · {p.category_name||"Uncategorized"}</div></div><div className="flex gap-3 text-sm"><button onClick={async()=>{await apiFetch("/api/posts/"+p.id+"/"+(p.status==="published"?"unpublish":"publish"),{method:"POST"});load()}} className="text-gray-600">{p.status==="published"?"Unpublish":"Publish"}</button><a href={"/admin/posts/"+p.id+"/edit"} className="text-gray-600">Edit</a><button onClick={async()=>{if(confirm("Delete this post?")){await apiFetch("/api/posts/"+p.id,{method:"DELETE"});load()}}} className="text-red-600">Delete</button></div></div>):<div className="p-10 text-center text-gray-500">No posts yet.</div>}</div></AdminShell>
+  }
+
+  return <AdminShell>
+    <div className="flex justify-between gap-4 mb-6">
+      <div><h1 className="text-3xl font-semibold">{id?"Edit post":"New post"}</h1><p className="mt-2 text-gray-500">Markdown editor with structured taxonomy, media, and relationships.</p></div>
+      <a href="/admin/posts" className="text-sm text-gray-500">Back</a>
+    </div>
+    <form onSubmit={save} className="grid xl:grid-cols-[minmax(0,1fr)_380px] gap-6">
+      <section className="rounded-xl border bg-white p-6 space-y-4">
+        <input value={post.title} onChange={e=>setPost({...post,title:e.target.value})} placeholder="Title" required className="w-full text-3xl font-semibold border-b pb-3 outline-none"/>
+        <input value={post.slug||""} onChange={e=>setPost({...post,slug:e.target.value})} placeholder="Slug" className="w-full rounded-lg border px-3 py-2"/>
+        <textarea value={post.description||""} onChange={e=>setPost({...post,description:e.target.value})} placeholder="Description" rows={3} className="w-full rounded-lg border px-3 py-2"/>
+        <textarea value={post.content||""} onChange={e=>setPost({...post,content:e.target.value})} placeholder="Write in Markdown..." rows={28} className="w-full rounded-lg border px-4 py-3 font-mono text-sm"/>
+      </section>
+      <aside className="rounded-xl border bg-white p-5 space-y-5">
+        <label className="block text-sm font-medium">Status<select value={post.status} onChange={e=>setPost({...post,status:e.target.value})} className="mt-2 w-full rounded-lg border px-3 py-2">{STATES.map(x=><option key={x}>{x}</option>)}</select></label>
+        <label className="block text-sm font-medium">Content type<select value={post.content_type} onChange={e=>setPost({...post,content_type:e.target.value})} className="mt-2 w-full rounded-lg border px-3 py-2">{TYPES.map(x=><option key={x}>{x}</option>)}</select></label>
+
+        <MultiSelectField label="Categories" items={cats} selected={post.category_ids||[]} onToggle={n=>toggle("category_ids",n)} emptyText="No categories available." createHref="/admin/categories"/>
+        <MultiSelectField label="Tags" items={tags} selected={post.tag_ids||[]} onToggle={n=>toggle("tag_ids",n)} emptyText="No tags available." createHref="/admin/tags"/>
+        <MultiSelectField label="Technologies" items={techs} selected={post.technology_ids||[]} onToggle={n=>toggle("technology_ids",n)} emptyText="No technologies available." createHref="/admin/technologies"/>
+        <MultiSelectField label="Tools" items={tools} selected={post.tool_ids||[]} onToggle={n=>toggle("tool_ids",n)} emptyText="No tools available." createHref="/admin/tools"/>
+        <MultiSelectField label="Projects" items={projects} selected={post.project_ids||[]} onToggle={n=>toggle("project_ids",n)} emptyText="No projects available." createHref="/admin/projects"/>
+        <MultiSelectField label="Related posts" items={items.filter((x:any)=>Number(x.id)!==Number(id))} selected={post.related_post_ids||[]} onToggle={n=>toggle("related_post_ids",n)} emptyText="No other posts available yet." createHref="/admin/posts/new"/>
+
+        <div>
+          <label className="block text-sm font-medium">Cover image<select value={post.cover_image_id||""} onChange={e=>setPost({...post,cover_image_id:e.target.value?Number(e.target.value):null})} className="mt-2 w-full rounded-lg border px-3 py-2"><option value="">No cover</option>{media.map(x=><option key={x.id} value={x.id}>{x.filename}</option>)}</select></label>
+          {post.cover_image_id&&media.find(x=>Number(x.id)===Number(post.cover_image_id))&&<img src={media.find(x=>Number(x.id)===Number(post.cover_image_id)).secure_url||media.find(x=>Number(x.id)===Number(post.cover_image_id)).url} className="mt-3 aspect-video w-full rounded-lg object-cover" />}
+          <a href="/admin/media" className="mt-2 inline-block text-xs text-gray-500 underline">Manage media</a>
+        </div>
+
+        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={!!post.featured} onChange={e=>setPost({...post,featured:e.target.checked})}/> Featured</label>
+        <input value={post.seo_title||""} onChange={e=>setPost({...post,seo_title:e.target.value})} placeholder="SEO title" className="w-full rounded-lg border px-3 py-2"/>
+        <textarea value={post.seo_description||""} onChange={e=>setPost({...post,seo_description:e.target.value})} placeholder="SEO description" rows={3} className="w-full rounded-lg border px-3 py-2"/>
+        {error&&<p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
+        <button disabled={loading} className="w-full rounded-lg bg-gray-900 py-2.5 text-sm text-white disabled:opacity-50">{loading?"Saving…":"Save post"}</button>
+      </aside>
+    </form>
+  </AdminShell>
+}
 function apiFetch(path:string,opts:any={}):Promise<any>{return fetch(path,{credentials:"include",...opts}).then(async r=>{const d=await r.json().catch(()=>({}));if(r.status===401){location.href="/admin/login";throw Error("Unauthenticated")}if(!r.ok)throw Error(d.error?.message||"Request failed");return d.data})}
 
 
@@ -167,7 +251,7 @@ function ResearchPublic(){const [rows,setRows]=useState<any[]>([]);useEffect(()=
 function ResearchDetailPublic({id}:{id:string}){const [x,setX]=useState<any>(null);useEffect(()=>{apiFetch("/api/content/research/"+id).then(setX).catch(()=>setX(false))},[id]);if(!x)return siteShell(<main className="max-w-3xl mx-auto px-5 py-20 text-gray-500">{x===false?"Not found":"Loading…"}</main>);return siteShell(<article className="max-w-3xl mx-auto px-5 py-16"><div className="text-xs text-gray-500">Research · {dateFmt(x.published_at)}</div><h1 className="mt-3 text-4xl font-bold">{x.title}</h1><p className="mt-4 text-xl text-gray-600">{x.description}</p><div className="mt-10"><Md value={x.content}/></div></article>)}
 function SearchPublic(){const [rows,setRows]=useState<any[]>([]),[q,setQ]=useState("");const run=async(e:any)=>{e.preventDefault();setRows(await apiFetch("/api/posts?status=published&limit=100&q="+encodeURIComponent(q)))};return siteShell(<main className="max-w-4xl mx-auto px-5 py-16"><h1 className="text-4xl font-bold">Search</h1><form onSubmit={run} className="mt-6 flex gap-2"><input value={q} onChange={e=>setQ(e.target.value)} placeholder="Search posts..." className="flex-1 rounded-lg border px-3 py-2"/><button className="rounded-lg bg-gray-900 px-4 text-white">Search</button></form><div className="mt-8 space-y-4">{rows.map(x=><a key={x.id} href={"/blog/"+x.slug} className="block rounded-xl border p-5"><div className="font-medium">{x.title}</div><p className="mt-1 text-sm text-gray-600">{x.description}</p></a>)}</div></main>)}
 function AboutPublic(){return siteShell(<main className="max-w-3xl mx-auto px-5 py-16"><h1 className="text-4xl font-bold">About Vijevira Labs</h1><div className="mt-8 space-y-5 text-lg leading-8 text-gray-700"><p>Vijevira Labs is an independent engineering lab for building, researching, documenting, and sharing practical software systems.</p><p>Content connects with tools, technologies, projects, experiments, and production lessons so technical knowledge stays useful beyond a single post.</p></div></main>)}
-function TaxonomyPublic({slug}:{slug:string}){const [data,setData]=useState<any[]>([]),[posts,setPosts]=useState<any[]>([]);useEffect(()=>{Promise.all([apiFetch("/api/taxonomy/categories"),apiFetch("/api/posts?status=published&limit=100")]).then(([c,p])=>{const row=c.find((x:any)=>x.slug===slug);setData(row?[row]:[]);setPosts(row?p.filter((x:any)=>Number(x.category_id)===Number(row.id)):[])}).catch(()=>{})},[slug]);const c=data[0];return siteShell(<main className="max-w-4xl mx-auto px-5 py-16"><div className="text-sm text-gray-500">Topic</div><h1 className="mt-2 text-4xl font-bold">{c?.name||slug}</h1><p className="mt-3 text-gray-600">{c?.description}</p><div className="mt-8 space-y-4">{posts.map(x=><a className="block rounded-xl border p-5" href={"/blog/"+x.slug} key={x.id}><div className="font-medium">{x.title}</div><p className="mt-1 text-sm text-gray-600">{x.description}</p></a>)}</div></main>)}
+function TaxonomyPublic({slug}:{slug:string}){const [data,setData]=useState<any[]>([]),[posts,setPosts]=useState<any[]>([]);useEffect(()=>{apiFetch("/api/taxonomy/categories").then((c:any[])=>{const row=c.find((x:any)=>x.slug===slug);setData(row?[row]:[]);if(row)return apiFetch("/api/posts?status=published&limit=100&category_id="+encodeURIComponent(row.id)).then(setPosts);setPosts([])}).catch(()=>{})},[slug]);const c=data[0];return siteShell(<main className="max-w-4xl mx-auto px-5 py-16"><div className="text-sm text-gray-500">Topic</div><h1 className="mt-2 text-4xl font-bold">{c?.name||slug}</h1><p className="mt-3 text-gray-600">{c?.description}</p><div className="mt-8 space-y-4">{posts.map(x=><a className="block rounded-xl border p-5" href={"/blog/"+x.slug} key={x.id}><div className="font-medium">{x.title}</div><p className="mt-1 text-sm text-gray-600">{x.description}</p></a>)}</div>{!posts.length&&c&&<p className="mt-8 text-gray-500">No published posts in this topic yet.</p>}</main>)}
 
 function TagPublic({slug}:{slug:string}){
   const [data,setData]=useState<any>(null);
