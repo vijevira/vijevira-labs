@@ -10,7 +10,7 @@ const error = (c: any, status: number, code: string, message: string) =>
   c.json({ error: { code, message } }, status);
 
 function slugify(value: string) {
-  return value.trim().toLowerCase().normalize("NFKD").replace(/[^\\w\\s-]/g, "").replace(/[\\s_-]+/g, "-").replace(/^-+|-+$/g, "");
+  return value.trim().toLowerCase().normalize("NFKD").replace(/[^\w\s-]/g, "").replace(/[\s_-]+/g, "-").replace(/^-+|-+$/g, "");
 }
 
 function readingTime(content: string) {
