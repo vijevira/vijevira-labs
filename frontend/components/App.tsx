@@ -306,7 +306,7 @@ const ARTICLE_STYLES = `
 .vl-article th{background:#f8fafc;color:#0f172a;font-size:.9rem;font-weight:700}
 .vl-article tr:last-child td{border-bottom:0}
 .vl-article img{display:block;max-width:100%;height:auto;margin:1.5rem auto;border-radius:14px}
-.vl-toc{position:sticky;top:4.75rem;align-self:start}
+.vl-toc{position:sticky;top:4.75rem;align-self:start;max-height:calc(100vh - 6rem);overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#cbd5e1 transparent}
 .vl-toc a{display:block;padding:.35rem 0;color:#64748b;text-decoration:none;font-size:.82rem;line-height:1.4}
 .vl-toc a:hover{color:#0f172a}
 .vl-article .vl-lead{font-size:1.18rem;line-height:1.8;color:#475569}
