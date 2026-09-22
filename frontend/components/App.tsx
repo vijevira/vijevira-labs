@@ -386,7 +386,8 @@ function renderMarkdown(value:string){
 }
 
 function Md({value,article=false}:{value:string,article?:boolean}){
-  const rendered=renderMarkdown(value);
+  const source=article ? String(value||"").replace(/^#\s+.+(?:\r?\n|$)/,"") : value;
+  const rendered=renderMarkdown(source);
   return <div className={article ? "grid lg:grid-cols-[minmax(0,1fr)_220px] gap-12 items-start" : ""}>
     <div className="vl-article" dangerouslySetInnerHTML={{__html:rendered.html}}/>
     {article && rendered.headings.length>1 && <aside className="hidden lg:block vl-toc rounded-xl border border-gray-200 bg-gray-50/70 p-4">
