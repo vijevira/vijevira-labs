@@ -8,49 +8,49 @@ const nav = [
 ];
 
 function AdminShell({ children }: { children: any }) {
-  const [user, setUser] = useState<any>(null);
-  const [checking, setChecking] = useState(true);
-
-  useEffect(() => {
-    fetch("/api/auth/me", { credentials: "include" })
-      .then(async (r) => {
-        const d = await r.json().catch(() => ({}));
-        if (!r.ok) throw new Error(d.error?.message || "Unauthenticated");
-        return d.data;
-      })
-      .then((data) => {
-        setUser(data);
-        setChecking(false);
-      })
-      .catch(() => {
-        window.location.replace("/admin/login");
-      });
-  }, []);
-
-  const logout = async () => {
-    try {
-      await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
-    } finally {
-      window.location.replace("/admin/login");
-    }
-  };
-
-  if (checking) {
-    return <div className="min-h-screen bg-gray-50 flex items-center justify-center text-sm text-gray-500">Checking session…</div>;
-  }
-
-  return <div className="min-h-screen bg-gray-50 text-gray-900">
-    <aside className="fixed inset-y-0 left-0 w-60 border-r border-gray-200 bg-white p-5 flex flex-col">
-      <a href="/admin" className="block text-lg font-semibold mb-8">Vijevira Labs</a>
-      <p className="text-xs uppercase tracking-wider text-gray-400 mb-3">Admin</p>
-      <nav className="space-y-1 flex-1">{nav.map(([href,label]) => <a key={href} href={href} className="block rounded-lg px-3 py-2 text-sm text-gray-600 hover:bg-gray-100">{label}</a>)}</nav>
-      <div className="border-t pt-4">
-        <p className="text-xs text-gray-500 truncate mb-3">{user?.email}</p>
-        <button type="button" onClick={logout} className="text-sm text-red-600 hover:text-red-700">Sign out</button>
-        <a href="/" className="block mt-3 text-sm text-gray-500">← View site</a>
+  const [user,setUser]=useState<any>(null),[checking,setChecking]=useState(true),[menu,setMenu]=useState(false);
+  const path=location.pathname;
+  const sections=[
+    {title:"Content",items:[["/admin","Dashboard"],["/admin/posts","Posts"],["/admin/research","Research"]]},
+    {title:"Resources",items:[["/admin/tools","Tools"],["/admin/projects","Projects"],["/admin/media","Media"]]},
+    {title:"Taxonomy",items:[["/admin/categories","Categories"],["/admin/tags","Tags"],["/admin/technologies","Technologies"]]},
+  ];
+  useEffect(()=>{
+    fetch("/api/auth/me",{credentials:"include"})
+      .then(async r=>{const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error?.message||"Unauthenticated");return d.data})
+      .then(data=>{setUser(data);setChecking(false)})
+      .catch(()=>window.location.replace("/admin/login"));
+  },[]);
+  const logout=async()=>{try{await fetch("/api/auth/logout",{method:"POST",credentials:"include"})}finally{window.location.replace("/admin/login")}};
+  const isActive=(href:string)=>href==="/admin"?path==="/admin":path===href||path.startsWith(href+"/");
+  if(checking)return <div className="min-h-screen bg-slate-50 flex items-center justify-center text-sm text-slate-500">Checking session…</div>;
+  return <div className="min-h-screen bg-slate-50 text-slate-900">
+    <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 border-r border-slate-200 bg-white md:flex md:flex-col">
+      <div className="px-5 pt-5">
+        <a href="/admin" className="flex items-center gap-3">
+          <span className="grid h-9 w-9 place-items-center rounded-xl bg-slate-950 text-[11px] font-bold text-white">VL</span>
+          <span><span className="block text-sm font-semibold tracking-tight">Vijevira Labs</span><span className="block text-[10px] uppercase tracking-[0.18em] text-slate-400">Admin workspace</span></span>
+        </a>
+      </div>
+      <nav className="mt-8 flex-1 overflow-y-auto px-3 pb-5">
+        {sections.map(s=><div key={s.title} className="mb-6">
+          <div className="px-3 pb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">{s.title}</div>
+          <div className="space-y-1">{s.items.map(([href,label])=><a key={href} href={href} className={`flex items-center rounded-lg px-3 py-2.5 text-sm transition ${isActive(href)?"bg-slate-950 font-medium text-white shadow-sm":"text-slate-600 hover:bg-slate-100 hover:text-slate-950"}`}>{label}</a>)}</div>
+        </div>)}
+        <div><div className="px-3 pb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">System</div><a href="/admin/settings" className={`flex items-center rounded-lg px-3 py-2.5 text-sm ${isActive("/admin/settings")?"bg-slate-950 font-medium text-white":"text-slate-600 hover:bg-slate-100 hover:text-slate-950"}`}>Settings</a></div>
+      </nav>
+      <div className="border-t border-slate-200 p-4">
+        <div className="rounded-xl bg-slate-50 p-3"><p className="truncate text-xs font-medium text-slate-700">{user?.email}</p><div className="mt-3 flex items-center justify-between gap-3"><a href="/" className="text-xs text-slate-500 hover:text-slate-950">View site ↗</a><button type="button" onClick={logout} className="text-xs font-medium text-red-600 hover:text-red-700">Sign out</button></div></div>
       </div>
     </aside>
-    <main className="ml-60 min-h-screen p-8">{children}</main>
+    <div className="md:hidden sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur">
+      <div className="flex h-14 items-center justify-between px-4">
+        <a href="/admin" className="flex items-center gap-2.5"><span className="grid h-8 w-8 place-items-center rounded-lg bg-slate-950 text-[10px] font-bold text-white">VL</span><span className="text-sm font-semibold">Vijevira Labs</span></a>
+        <button type="button" onClick={()=>setMenu(v=>!v)} className="grid h-9 w-9 place-items-center rounded-lg border border-slate-200">{menu?"×":"☰"}</button>
+      </div>
+      {menu&&<div className="border-t border-slate-200 bg-white px-3 py-3">{sections.flatMap(s=>s.items).map(([href,label])=><a key={href} href={href} onClick={()=>setMenu(false)} className={`block rounded-lg px-3 py-2.5 text-sm ${isActive(href)?"bg-slate-100 font-medium text-slate-950":"text-slate-600"}`}>{label}</a>)}<a href="/admin/settings" onClick={()=>setMenu(false)} className={`block rounded-lg px-3 py-2.5 text-sm ${isActive("/admin/settings")?"bg-slate-100 font-medium text-slate-950":"text-slate-600"}`}>Settings</a><div className="mt-2 border-t pt-2"><a href="/" className="block px-3 py-2 text-sm text-slate-500">View site ↗</a><button type="button" onClick={logout} className="px-3 py-2 text-sm text-red-600">Sign out</button></div></div>}
+    </div>
+    <main className="min-h-screen px-4 py-6 md:ml-64 md:px-8 md:py-8"><div className="mx-auto max-w-[1400px]">{children}</div></main>
   </div>;
 }
 
@@ -80,25 +80,54 @@ function Login() {
     }
   };
 
-  return <div className="min-h-screen bg-gray-50 flex items-center justify-center px-6">
-    <form onSubmit={submit} className="w-full max-w-sm rounded-2xl border border-gray-200 bg-white p-7 shadow-sm">
-      <h1 className="text-2xl font-semibold">Vijevira Labs</h1>
-      <p className="mt-1 text-sm text-gray-500">Admin sign in</p>
-      <label className="block mt-7 text-sm font-medium">Email
-        <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" autoComplete="username" required className="mt-2 w-full rounded-lg border border-gray-300 px-3 py-2" />
-      </label>
-      <label className="block mt-4 text-sm font-medium">Password
-        <input value={password} onChange={(e) => setPassword(e.target.value)} type="password" autoComplete="current-password" required className="mt-2 w-full rounded-lg border border-gray-300 px-3 py-2" />
-      </label>
-      {error && <p className="mt-4 text-sm text-red-600">{error}</p>}
-      <button type="submit" disabled={loading} className="mt-6 w-full rounded-lg bg-gray-900 px-4 py-2.5 text-sm font-medium text-white disabled:opacity-50">
-        {loading ? "Signing in…" : "Sign in"}
-      </button>
-    </form>
+  return <div className="min-h-screen bg-slate-50 px-5">
+    <div className="mx-auto flex min-h-screen max-w-md items-center">
+      <form onSubmit={submit} className="w-full rounded-3xl border border-slate-200 bg-white p-7 shadow-xl shadow-slate-900/5 md:p-8">
+        <div className="flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-xl bg-slate-950 text-[11px] font-bold text-white">VL</span><div><div className="text-sm font-semibold tracking-tight text-slate-950">Vijevira Labs</div><div className="text-[10px] uppercase tracking-[0.17em] text-slate-400">Admin workspace</div></div></div>
+        <div className="mt-9"><h1 className="text-2xl font-semibold tracking-tight text-slate-950">Sign in</h1><p className="mt-1 text-sm text-slate-500">Manage publishing, research, tools, and projects.</p></div>
+        <label className="mt-7 block text-sm font-medium text-slate-700">Email
+          <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" autoComplete="username" required className="mt-2 w-full rounded-xl border border-slate-200 px-3.5 py-2.5 outline-none focus:border-slate-400" />
+        </label>
+        <label className="mt-4 block text-sm font-medium text-slate-700">Password
+          <input value={password} onChange={(e) => setPassword(e.target.value)} type="password" autoComplete="current-password" required className="mt-2 w-full rounded-xl border border-slate-200 px-3.5 py-2.5 outline-none focus:border-slate-400" />
+        </label>
+        {error && <p className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
+        <button type="submit" disabled={loading} className="mt-6 w-full rounded-xl bg-slate-950 px-4 py-3 text-sm font-medium text-white shadow-sm hover:bg-slate-800 disabled:opacity-50">
+          {loading ? "Signing in…" : "Sign in"}
+        </button>
+      </form>
+    </div>
   </div>;
 }
 
-function Dashboard(){return <AdminShell><h1 class="text-3xl font-semibold">Dashboard</h1><p class="mt-2 text-gray-500">Manage your engineering content and research.</p><div class="mt-8 grid grid-cols-1 md:grid-cols-3 gap-5"><a href="/admin/posts" class="rounded-xl border bg-white p-5"><p class="text-sm text-gray-500">Content</p><p class="mt-2 text-xl font-semibold">Posts</p></a><a href="/admin/research" class="rounded-xl border bg-white p-5"><p class="text-sm text-gray-500">Knowledge</p><p class="mt-2 text-xl font-semibold">Research</p></a><a href="/admin/media" class="rounded-xl border bg-white p-5"><p class="text-sm text-gray-500">Assets</p><p class="mt-2 text-xl font-semibold">Media</p></a></div></AdminShell>}
+function Dashboard(){
+  const [stats,setStats]=useState<any>({posts:0,drafts:0,published:0,research:0,tools:0,projects:0,media:0});
+  useEffect(()=>{
+    Promise.all([
+      apiFetch("/api/posts?limit=100").catch(()=>[]),
+      apiFetch("/api/content/research").catch(()=>[]),
+      apiFetch("/api/content/tools").catch(()=>[]),
+      apiFetch("/api/content/projects").catch(()=>[]),
+      apiFetch("/api/content/media").catch(()=>[])
+    ]).then(([posts,research,tools,projects,media])=>{
+      setStats({posts:posts.length,drafts:posts.filter((x:any)=>x.status==="draft").length,published:posts.filter((x:any)=>x.status==="published").length,research:research.length,tools:tools.length,projects:projects.length,media:media.length});
+    });
+  },[]);
+  return <AdminShell>
+    <div className="flex flex-wrap items-end justify-between gap-4">
+      <div><div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-teal-700">Workspace</div><h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">Dashboard</h1><p className="mt-2 text-sm leading-6 text-slate-500">A quick view of your publishing and research workspace.</p></div>
+      <a href="/admin/posts/new" className="rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-800">New post</a>
+    </div>
+    <section className="mt-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
+      {[[stats.posts,"Posts","/admin/posts"],[stats.published,"Published","/admin/posts"],[stats.drafts,"Drafts","/admin/posts"],[stats.media,"Media","/admin/media"]].map(([value,label,href])=><a key={label} href={href} className="rounded-2xl border border-slate-200 bg-white p-5 transition hover:border-slate-300 hover:shadow-md"><div className="text-2xl font-semibold tracking-tight text-slate-950">{value}</div><div className="mt-1 text-xs font-medium uppercase tracking-[0.12em] text-slate-400">{label}</div></a>)}
+    </section>
+    <section className="mt-8 grid lg:grid-cols-3 gap-5">
+      <a href="/admin/research" className="rounded-2xl border border-slate-200 bg-white p-6 transition hover:border-slate-300 hover:shadow-md"><div className="text-xs font-semibold uppercase tracking-[0.14em] text-teal-700">Research</div><div className="mt-3 text-xl font-semibold text-slate-950">{stats.research} investigations</div><p className="mt-2 text-sm leading-6 text-slate-500">Track questions, experiments, and findings.</p></a>
+      <a href="/admin/tools" className="rounded-2xl border border-slate-200 bg-white p-6 transition hover:border-slate-300 hover:shadow-md"><div className="text-xs font-semibold uppercase tracking-[0.14em] text-teal-700">Resources</div><div className="mt-3 text-xl font-semibold text-slate-950">{stats.tools} tools</div><p className="mt-2 text-sm leading-6 text-slate-500">Maintain the developer tools directory.</p></a>
+      <a href="/admin/projects" className="rounded-2xl border border-slate-200 bg-white p-6 transition hover:border-slate-300 hover:shadow-md"><div className="text-xs font-semibold uppercase tracking-[0.14em] text-teal-700">Build log</div><div className="mt-3 text-xl font-semibold text-slate-950">{stats.projects} projects</div><p className="mt-2 text-sm leading-6 text-slate-500">Keep project documentation connected to the lab.</p></a>
+    </section>
+  </AdminShell>;
+}
 
 const TYPES=["article","tutorial","research","guide","comparison","project_log","note"];
 const STATES=["draft","review","scheduled","published","archived"];
@@ -150,7 +179,7 @@ function EnhancedPosts(){
   const path=location.pathname, edit=path.match(/^\/admin\/posts\/(\d+)\/edit$/), id=edit?.[1];
   const [items,setItems]=useState<any[]>([]),[cats,setCats]=useState<any[]>([]),[tags,setTags]=useState<any[]>([]),[techs,setTechs]=useState<any[]>([]),[tools,setTools]=useState<any[]>([]),[projects,setProjects]=useState<any[]>([]),[media,setMedia]=useState<any[]>([]);
   const [post,setPost]=useState<any>({title:"",slug:"",description:"",content:"",content_type:"article",status:"draft",featured:false,category_ids:[],tag_ids:[],technology_ids:[],tool_ids:[],project_ids:[],related_post_ids:[],cover_image_id:"",seo_title:"",seo_description:""});
-  const [error,setError]=useState(""),[loading,setLoading]=useState(false),[statusAction,setStatusAction]=useState<number|null>(null),[statusError,setStatusError]=useState(""),[showPreview,setShowPreview]=useState(false);
+  const [error,setError]=useState(""),[loading,setLoading]=useState(false),[statusAction,setStatusAction]=useState<number|null>(null),[statusError,setStatusError]=useState(""),[showPreview,setShowPreview]=useState(false),[listQuery,setListQuery]=useState(""),[listStatus,setListStatus]=useState("all");
   const load=()=>apiFetch("/api/posts?limit=100").then(setItems).catch((e:any)=>setError(e.message));
   useEffect(()=>{
     Promise.all([
@@ -197,29 +226,68 @@ function EnhancedPosts(){
       location.href="/admin/posts";
     }catch(e:any){setError(e.message);setLoading(false)}
   };
+  const visibleItems=items.filter(p=>(listStatus==="all"||p.status===listStatus)&&(!listQuery.trim()||String(p.title||"").toLowerCase().includes(listQuery.trim().toLowerCase())));
 
   if(path==="/admin/posts"||path==="/admin/posts/"){
-    return <AdminShell><div className="flex items-center justify-between gap-4"><div><h1 className="text-3xl font-semibold">Posts</h1><p className="mt-2 text-gray-500">Articles, tutorials, research, guides and notes.</p></div><a href="/admin/posts/new" className="rounded-lg bg-gray-900 px-4 py-2 text-sm text-white">New post</a></div>{statusError&&<div className="mt-5 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{statusError}</div>}<div className="mt-8 rounded-xl border bg-white divide-y">{items.length?items.map(p=><div className="p-5 flex items-center justify-between gap-4" key={p.id}><div><div className="font-medium">{p.title}</div><div className="text-xs text-gray-500 mt-1">{p.status} · {p.content_type} · {p.category_name||"Uncategorized"}</div></div><div className="flex items-center gap-3 text-sm"><button type="button" disabled={statusAction===Number(p.id)} onClick={()=>changeStatus(p)} className="text-gray-600 disabled:opacity-50">{statusAction===Number(p.id)?"Saving…":p.status==="published"?"Unpublish":"Publish"}</button><a href={"/admin/posts/"+p.id+"/edit"} className="text-gray-600">Edit</a><button type="button" onClick={async()=>{if(confirm("Delete this post?")){await apiFetch("/api/posts/"+p.id,{method:"DELETE"});load()}}} className="text-red-600">Delete</button></div></div>):<div className="p-10 text-center text-gray-500">No posts yet.</div>}</div></AdminShell>
+    return <AdminShell>
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div><div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-teal-700">Publishing</div><h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">Posts</h1><p className="mt-2 text-sm text-slate-500">Articles, tutorials, guides, comparisons, and build notes.</p></div>
+        <a href="/admin/posts/new" className="rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-800">New post</a>
+      </div>
+      {statusError&&<div className="mt-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{statusError}</div>}
+      <div className="mt-7 flex flex-col gap-3 md:flex-row">
+        <input value={listQuery} onChange={e=>setListQuery(e.target.value)} placeholder="Search posts…" className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-slate-400"/>
+        <div className="flex gap-2 overflow-x-auto">
+          {["all","draft","published","review","scheduled","archived"].map(s=><button key={s} type="button" onClick={()=>setListStatus(s)} className={`shrink-0 rounded-full border px-3.5 py-2 text-xs font-medium capitalize ${listStatus===s?"border-slate-950 bg-slate-950 text-white":"border-slate-200 bg-white text-slate-600 hover:border-slate-300"}`}>{s}</button>)}
+        </div>
+      </div>
+      <div className="mt-5 rounded-2xl border border-slate-200 bg-white overflow-hidden">
+        {visibleItems.length?visibleItems.map(p=><div className="p-5 md:p-6 border-b last:border-0 border-slate-100" key={p.id}>
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="font-semibold tracking-tight text-slate-950">{p.title}</h2>
+                <span className={`rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] ${p.status==="published"?"bg-emerald-50 text-emerald-700":p.status==="draft"?"bg-slate-100 text-slate-600":"bg-amber-50 text-amber-700"}`}>{p.status}</span>
+              </div>
+              <div className="mt-1.5 text-xs text-slate-400">{p.content_type} · {p.category_name||"Uncategorized"}{p.published_at?" · "+dateFmt(p.published_at):""}</div>
+            </div>
+            <div className="flex items-center gap-3 text-sm">
+              <button type="button" disabled={statusAction===Number(p.id)} onClick={()=>changeStatus(p)} className="font-medium text-slate-600 hover:text-slate-950 disabled:opacity-50">{statusAction===Number(p.id)?"Saving…":p.status==="published"?"Unpublish":"Publish"}</button>
+              <a href={"/admin/posts/"+p.id+"/edit"} className="text-slate-500 hover:text-slate-950">Edit</a>
+              <button type="button" onClick={async()=>{if(confirm("Delete this post?")){await apiFetch("/api/posts/"+p.id,{method:"DELETE"});load()}}} className="text-red-600 hover:text-red-700">Delete</button>
+            </div>
+          </div>
+        </div>):<div className="p-12"><EmptyState title="No matching posts." description={items.length?"Try a different search or status filter.":"Create your first post to start publishing."}/></div>}
+      </div>
+    </AdminShell>
   }
 
   return <AdminShell>
-    <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
-      <div><h1 className="text-3xl font-semibold">{id?"Edit post":"New post"}</h1><p className="mt-2 text-gray-500">{showPreview?"Review the rendered article before saving or publishing.":"Markdown editor with structured taxonomy, media, and relationships."}</p></div>
-      <div className="flex items-center gap-3">
-        <button type="button" onClick={()=>setShowPreview(v=>!v)} className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">{showPreview?"Edit":"Preview"}</button>
-        <a href="/admin/posts" className="text-sm text-gray-500">Back</a>
+    <div className="sticky top-0 z-20 -mx-4 border-b border-slate-200 bg-slate-50/95 px-4 py-4 backdrop-blur md:-mx-8 md:px-8">
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div><div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-teal-700">{id?"Editing":"Drafting"}</div><h1 className="mt-1 text-2xl font-semibold tracking-tight text-slate-950">{id?"Edit post":"New post"}</h1><p className="mt-1 text-xs text-slate-500">{showPreview?"Rendered preview of the current editor state.":"Write, structure, optimize, then publish."}</p></div>
+        <div className="flex items-center gap-2">
+          <button type="button" onClick={()=>setShowPreview(v=>!v)} className="rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 hover:border-slate-300">{showPreview?"Back to editor":"Preview"}</button>
+          {!showPreview&&<button type="submit" form="post-editor" disabled={loading} className="rounded-xl bg-slate-950 px-4 py-2 text-sm font-medium text-white disabled:opacity-50">{loading?"Saving…":"Save post"}</button>}
+          <a href="/admin/posts" className="hidden sm:inline-flex rounded-xl px-3 py-2 text-sm text-slate-500 hover:text-slate-950">Back</a>
+        </div>
       </div>
     </div>
-    {showPreview ? <AdminPostPreview post={post} media={media} cats={cats} tags={tags}/> : <form onSubmit={save} className="grid xl:grid-cols-[minmax(0,1fr)_380px] gap-6">
-      <section className="rounded-xl border bg-white p-6 space-y-4">
+    {showPreview ? <AdminPostPreview post={post} media={media} cats={cats} tags={tags}/> : <form id="post-editor" onSubmit={save} className="mt-6 grid xl:grid-cols-[minmax(0,1fr)_380px] gap-6 items-start">
+      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:p-7 space-y-5">
         <input value={post.title} onChange={e=>setPost({...post,title:e.target.value})} placeholder="Title" required className="w-full text-3xl font-semibold border-b pb-3 outline-none"/>
         <input value={post.slug||""} onChange={e=>setPost({...post,slug:e.target.value})} placeholder="Slug" className="w-full rounded-lg border px-3 py-2"/>
         <textarea value={post.description||""} onChange={e=>setPost({...post,description:e.target.value})} placeholder="Description" rows={3} className="w-full rounded-lg border px-3 py-2"/>
         <textarea value={post.content||""} onChange={e=>setPost({...post,content:e.target.value})} placeholder="Write in Markdown..." rows={28} className="w-full rounded-lg border px-4 py-3 font-mono text-sm"/>
       </section>
-      <aside className="rounded-xl border bg-white p-5 space-y-5">
-        <label className="block text-sm font-medium">Status<select value={post.status} onChange={e=>setPost({...post,status:e.target.value})} className="mt-2 w-full rounded-lg border px-3 py-2">{STATES.map(x=><option key={x}>{x}</option>)}</select></label>
-        <label className="block text-sm font-medium">Content type<select value={post.content_type} onChange={e=>setPost({...post,content_type:e.target.value})} className="mt-2 w-full rounded-lg border px-3 py-2">{TYPES.map(x=><option key={x}>{x}</option>)}</select></label>
+      <aside className="xl:sticky xl:top-24 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-5">
+        <div className="border-b border-slate-200 pb-4"><div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">Publishing</div>
+          <div className="mt-4 space-y-4">
+            <label className="block text-sm font-medium text-slate-700">Status<select value={post.status} onChange={e=>setPost({...post,status:e.target.value})} className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2.5">{STATES.map(x=><option key={x}>{x}</option>)}</select></label>
+            <label className="block text-sm font-medium text-slate-700">Content type<select value={post.content_type} onChange={e=>setPost({...post,content_type:e.target.value})} className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2.5">{TYPES.map(x=><option key={x}>{x}</option>)}</select></label>
+          </div>
+        </div>
+        <div className="border-b border-slate-200 pb-4"><div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400 mb-4">Taxonomy</div>
 
         <MultiSelectField label="Categories" items={cats} selected={post.category_ids||[]} onToggle={n=>toggle("category_ids",n)} emptyText="No categories available." createHref="/admin/categories"/>
         <MultiSelectField label="Tags" items={tags} selected={post.tag_ids||[]} onToggle={n=>toggle("tag_ids",n)} emptyText="No tags available." createHref="/admin/tags"/>
@@ -227,18 +295,24 @@ function EnhancedPosts(){
         <MultiSelectField label="Tools" items={tools} selected={post.tool_ids||[]} onToggle={n=>toggle("tool_ids",n)} emptyText="No tools available." createHref="/admin/tools"/>
         <MultiSelectField label="Projects" items={projects} selected={post.project_ids||[]} onToggle={n=>toggle("project_ids",n)} emptyText="No projects available." createHref="/admin/projects"/>
         <MultiSelectField label="Related posts" items={items.filter((x:any)=>Number(x.id)!==Number(id))} selected={post.related_post_ids||[]} onToggle={n=>toggle("related_post_ids",n)} emptyText="No other posts available yet." createHref="/admin/posts/new"/>
+        </div>
 
-        <div>
+        <div className="border-b border-slate-200 pb-4"><div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400 mb-4">Media</div>
           <label className="block text-sm font-medium">Cover image<select value={post.cover_image_id||""} onChange={e=>setPost({...post,cover_image_id:e.target.value?Number(e.target.value):null})} className="mt-2 w-full rounded-lg border px-3 py-2"><option value="">No cover</option>{media.map(x=><option key={x.id} value={x.id}>{x.filename}</option>)}</select></label>
           {post.cover_image_id&&media.find(x=>Number(x.id)===Number(post.cover_image_id))&&<img src={media.find(x=>Number(x.id)===Number(post.cover_image_id)).secure_url||media.find(x=>Number(x.id)===Number(post.cover_image_id)).url} className="mt-3 aspect-video w-full rounded-lg object-cover" />}
           <a href="/admin/media" className="mt-2 inline-block text-xs text-gray-500 underline">Manage media</a>
         </div>
-
-        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={!!post.featured} onChange={e=>setPost({...post,featured:e.target.checked})}/> Featured</label>
-        <input value={post.seo_title||""} onChange={e=>setPost({...post,seo_title:e.target.value})} placeholder="SEO title" className="w-full rounded-lg border px-3 py-2"/>
-        <textarea value={post.seo_description||""} onChange={e=>setPost({...post,seo_description:e.target.value})} placeholder="SEO description" rows={3} className="w-full rounded-lg border px-3 py-2"/>
-        {error&&<p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
-        <button disabled={loading} className="w-full rounded-lg bg-gray-900 py-2.5 text-sm text-white disabled:opacity-50">{loading?"Saving…":"Save post"}</button>
+        <div className="space-y-4">
+          <div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">Publishing options</div>
+          <label className="flex items-center gap-2 text-sm text-slate-700"><input type="checkbox" checked={!!post.featured} onChange={e=>setPost({...post,featured:e.target.checked})}/> Featured</label>
+        </div>
+        <div className="space-y-4">
+          <div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">SEO</div>
+          <input value={post.seo_title||""} onChange={e=>setPost({...post,seo_title:e.target.value})} placeholder="SEO title" className="w-full rounded-xl border border-slate-200 px-3 py-2.5"/>
+          <textarea value={post.seo_description||""} onChange={e=>setPost({...post,seo_description:e.target.value})} placeholder="SEO description" rows={3} className="w-full rounded-xl border border-slate-200 px-3 py-2.5"/>
+        </div>
+        {error&&<p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
+        <button type="submit" disabled={loading} className="w-full rounded-xl bg-slate-950 py-3 text-sm font-medium text-white disabled:opacity-50">{loading?"Saving…":"Save post"}</button>
       </aside>
     </form>}
   </AdminShell>
@@ -254,7 +328,21 @@ function TaxonomyManager({kind}:{kind:"categories"|"tags"|"technologies"}){
   const reset=()=>{setEditing(null);setName("");setSlug("");setDescription("");setWebsite("");setLogo("");setError("")};
   const save=async(e:any)=>{e.preventDefault();try{const body:any={name,slug};if(kind!=="tags")body.description=description;if(kind==="technologies"){body.website_url=website;body.logo_url=logo}await apiFetch(editing?"/api/taxonomy/"+kind+"/"+editing.id:"/api/taxonomy/"+kind,{method:editing?"PUT":"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});reset();load()}catch(e:any){setError(e.message)}};
   const edit=(x:any)=>{setEditing(x);setName(x.name);setSlug(x.slug);setDescription(x.description||"");setWebsite(x.website_url||"");setLogo(x.logo_url||"")};
-  return <AdminShell><h1 className="text-3xl font-semibold">{kind[0].toUpperCase()+kind.slice(1)}</h1><div className="mt-8 grid lg:grid-cols-[340px_1fr] gap-6"><form onSubmit={save} className="rounded-xl border bg-white p-5 space-y-3"><input required value={name} onChange={e=>setName(e.target.value)} placeholder="Name" className="w-full rounded-lg border px-3 py-2"/><input value={slug} onChange={e=>setSlug(e.target.value)} placeholder="Slug (optional)" className="w-full rounded-lg border px-3 py-2"/>{kind!=="tags"&&<textarea value={description} onChange={e=>setDescription(e.target.value)} placeholder="Description" rows={4} className="w-full rounded-lg border px-3 py-2"/>}{kind==="technologies"&&<><input value={website} onChange={e=>setWebsite(e.target.value)} placeholder="Website URL" className="w-full rounded-lg border px-3 py-2"/><input value={logo} onChange={e=>setLogo(e.target.value)} placeholder="Logo URL" className="w-full rounded-lg border px-3 py-2"/></>}{error&&<p className="text-sm text-red-600">{error}</p>}<div className="flex gap-2"><button className="rounded-lg bg-gray-900 px-4 py-2 text-sm text-white">{editing?"Update":"Add"}</button>{editing&&<button type="button" onClick={reset} className="rounded-lg border px-4 py-2 text-sm">Cancel</button>}</div></form><div className="rounded-xl border bg-white divide-y">{rows.map(x=><div key={x.id} className="p-4 flex justify-between gap-4"><div><div className="font-medium">{x.name}</div><div className="text-xs text-gray-500">{x.slug}</div></div><div className="flex gap-3 text-sm"><button onClick={()=>edit(x)} className="text-gray-600">Edit</button><button onClick={async()=>{if(confirm("Delete this item?")){await apiFetch("/api/taxonomy/"+kind+"/"+x.id,{method:"DELETE"});load()}}} className="text-red-600">Delete</button></div></div>)}</div></div></AdminShell>
+  return <AdminShell>
+    <div><div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-teal-700">Taxonomy</div><h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">{kind[0].toUpperCase()+kind.slice(1)}</h1><p className="mt-2 text-sm text-slate-500">Keep labels and technology metadata consistent across the publication.</p></div>
+    <div className="mt-7 grid lg:grid-cols-[340px_1fr] gap-6 items-start">
+      <form onSubmit={save} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-3">
+        <div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">{editing?"Edit item":"Add item"}</div>
+        <input required value={name} onChange={e=>setName(e.target.value)} placeholder="Name" className="w-full rounded-xl border border-slate-200 px-3 py-2.5"/>
+        <input value={slug} onChange={e=>setSlug(e.target.value)} placeholder="Slug (optional)" className="w-full rounded-xl border border-slate-200 px-3 py-2.5"/>
+        {kind!=="tags"&&<textarea value={description} onChange={e=>setDescription(e.target.value)} placeholder="Description" rows={4} className="w-full rounded-xl border border-slate-200 px-3 py-2.5"/>}
+        {kind==="technologies"&&<><input value={website} onChange={e=>setWebsite(e.target.value)} placeholder="Website URL" className="w-full rounded-xl border border-slate-200 px-3 py-2.5"/><input value={logo} onChange={e=>setLogo(e.target.value)} placeholder="Logo URL" className="w-full rounded-xl border border-slate-200 px-3 py-2.5"/></>}
+        {error&&<p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
+        <div className="flex gap-2 pt-1"><button className="rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-medium text-white">{editing?"Update":"Add"}</button>{editing&&<button type="button" onClick={reset} className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm">Cancel</button>}</div>
+      </form>
+      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"><div className="border-b border-slate-200 px-5 py-3 text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">{rows.length} {rows.length===1?"item":"items"}</div>{rows.length?rows.map(x=><div key={x.id} className="p-5 flex items-center justify-between gap-4 border-b last:border-0 border-slate-100"><div><div className="font-medium text-slate-950">{x.name}</div><div className="mt-1 text-xs text-slate-400">{x.slug}</div></div><div className="flex gap-3 text-sm"><button onClick={()=>edit(x)} className="text-slate-600 hover:text-slate-950">Edit</button><button onClick={async()=>{if(confirm("Delete this item?")){await apiFetch("/api/taxonomy/"+kind+"/"+x.id,{method:"DELETE"});load()}}} className="text-red-600">Delete</button></div></div>):<div className="p-10"><EmptyState title="Nothing here yet." /></div>}</div>
+    </div>
+  </AdminShell>
 }
 
 function EntityManager({kind}:{kind:"tools"|"projects"}){
@@ -263,22 +351,36 @@ function EntityManager({kind}:{kind:"tools"|"projects"}){
   const set=(k:string,v:any)=>setForm((x:any)=>({...x,[k]:v})); const reset=()=>{setEditing(null);setForm({name:"",slug:"",description:"",long_description:"",website_url:"",category:"",pricing_type:"",free_tier:"",logo_url:"",my_experience:"",limitations:"",content:"",status:"building",repository_url:"",demo_url:"",cover_image_id:"",featured:false});setError("")};
   const save=async(e:any)=>{e.preventDefault();try{await apiFetch(editing?"/api/content/"+kind+"/"+editing.id:"/api/content/"+kind,{method:editing?"PUT":"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(form)});reset();load()}catch(e:any){setError(e.message)}};
   const fields=tool?[["description","Description",true],["long_description","Long description",true],["website_url","Website URL"],["category","Category"],["pricing_type","Pricing type"],["free_tier","Free tier",true],["logo_url","Logo URL"],["my_experience","My experience",true],["limitations","Limitations",true]]:[["description","Description",true],["content","Content",true],["status","Status"],["repository_url","Repository URL"],["demo_url","Demo URL"],["cover_image_id","Cover image ID"]];
-  return <AdminShell><div className="flex justify-between"><div><h1 className="text-3xl font-semibold">{kind[0].toUpperCase()+kind.slice(1)}</h1><p className="mt-2 text-gray-500">Manage {kind}.</p></div></div><div className="mt-8 grid lg:grid-cols-[380px_1fr] gap-6"><form onSubmit={save} className="rounded-xl border bg-white p-5 space-y-3"><input required value={form.name} onChange={e=>set("name",e.target.value)} placeholder="Name" className="w-full rounded-lg border px-3 py-2"/><input value={form.slug} onChange={e=>set("slug",e.target.value)} placeholder="Slug" className="w-full rounded-lg border px-3 py-2"/>{fields.map((x:any)=>x[2]?<textarea key={x[0]} value={form[x[0]]||""} onChange={e=>set(x[0],e.target.value)} placeholder={x[1]} rows={x[0]==="content"?10:3} className="w-full rounded-lg border px-3 py-2"/>:<input key={x[0]} value={form[x[0]]||""} onChange={e=>set(x[0],e.target.value)} placeholder={x[1]} className="w-full rounded-lg border px-3 py-2"/>)}<label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={!!form.featured} onChange={e=>set("featured",e.target.checked)}/> Featured</label>{error&&<p className="text-sm text-red-600">{error}</p>}<div className="flex gap-2"><button className="rounded-lg bg-gray-900 px-4 py-2 text-sm text-white">{editing?"Update":"Add"}</button>{editing&&<button type="button" onClick={reset} className="rounded-lg border px-4 py-2 text-sm">Cancel</button>}</div></form><div className="rounded-xl border bg-white divide-y">{rows.map(x=><div key={x.id} className="p-4 flex justify-between gap-4"><div><div className="font-medium">{x.name}</div><div className="text-xs text-gray-500">{x.slug}</div></div><div className="flex gap-3 text-sm"><button onClick={()=>{setEditing(x);setForm((v:any)=>({...v,...x}))}} className="text-gray-600">Edit</button><button onClick={async()=>{if(confirm("Delete this item?")){await apiFetch("/api/content/"+kind+"/"+x.id,{method:"DELETE"});load()}}} className="text-red-600">Delete</button></div></div>)}</div></div></AdminShell>
+  return <AdminShell>
+    <div><div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-teal-700">Resources</div><h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">{kind[0].toUpperCase()+kind.slice(1)}</h1><p className="mt-2 text-sm text-slate-500">Manage the structured directory and project records.</p></div>
+    <div className="mt-7 grid lg:grid-cols-[380px_1fr] gap-6 items-start">
+      <form onSubmit={save} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-3">
+        <div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">{editing?"Edit item":"Add item"}</div>
+        <input required value={form.name} onChange={e=>set("name",e.target.value)} placeholder="Name" className="w-full rounded-xl border border-slate-200 px-3 py-2.5"/>
+        <input value={form.slug} onChange={e=>set("slug",e.target.value)} placeholder="Slug" className="w-full rounded-xl border border-slate-200 px-3 py-2.5"/>
+        {fields.map((x:any)=>x[2]?<textarea key={x[0]} value={form[x[0]]||""} onChange={e=>set(x[0],e.target.value)} placeholder={x[1]} rows={x[0]==="content"?10:3} className="w-full rounded-xl border border-slate-200 px-3 py-2.5"/>:<input key={x[0]} value={form[x[0]]||""} onChange={e=>set(x[0],e.target.value)} placeholder={x[1]} className="w-full rounded-xl border border-slate-200 px-3 py-2.5"/>)}
+        <label className="flex items-center gap-2 text-sm text-slate-700"><input type="checkbox" checked={!!form.featured} onChange={e=>set("featured",e.target.checked)}/> Featured</label>
+        {error&&<p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
+        <div className="flex gap-2 pt-1"><button className="rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-medium text-white">{editing?"Update":"Add"}</button>{editing&&<button type="button" onClick={reset} className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm">Cancel</button>}</div>
+      </form>
+      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">{rows.length?rows.map(x=><div key={x.id} className="p-5 flex items-center justify-between gap-4 border-b last:border-0 border-slate-100"><div><div className="font-medium text-slate-950">{x.name}</div><div className="mt-1 text-xs text-slate-400">{x.slug}</div></div><div className="flex gap-3 text-sm"><button onClick={()=>{setEditing(x);setForm((v:any)=>({...v,...x}))}} className="text-slate-600 hover:text-slate-950">Edit</button><button onClick={async()=>{if(confirm("Delete this item?")){await apiFetch("/api/content/"+kind+"/"+x.id,{method:"DELETE"});load()}}} className="text-red-600">Delete</button></div></div>):<div className="p-10"><EmptyState title={`No ${kind} yet.`} /></div>}</div>
+    </div>
+  </AdminShell>
 }
 
 function ResearchManager(){
   const [rows,setRows]=useState<any[]>([]),[editing,setEditing]=useState<any>(null),[form,setForm]=useState<any>({title:"",slug:"",content:"",status:"active"});const routeId=(location.pathname.match(/^\/admin\/research\/(\d+)\/edit$/)||[])[1];const load=()=>apiFetch("/api/content/admin/research-notes").then((data:any[])=>{setRows(data);if(routeId){const item=data.find(x=>String(x.id)===String(routeId));if(item){setEditing(item);setForm({...item})}}}).catch(()=>{});useEffect(load,[routeId]);
   const save=async(e:any)=>{e.preventDefault();await apiFetch(editing?"/api/content/admin/research-notes/"+editing.id:"/api/content/admin/research-notes",{method:editing?"PUT":"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(form)});setEditing(null);setForm({title:"",slug:"",content:"",status:"active"});load()};
-  return <AdminShell><h1 className="text-3xl font-semibold">Research</h1><p className="mt-2 text-gray-500">Private research notes; promote finished work to a research post.</p><div className="mt-8 grid lg:grid-cols-[380px_1fr] gap-6"><form onSubmit={save} className="rounded-xl border bg-white p-5 space-y-3"><input required value={form.title} onChange={e=>setForm({...form,title:e.target.value})} placeholder="Title" className="w-full rounded-lg border px-3 py-2"/><input value={form.slug} onChange={e=>setForm({...form,slug:e.target.value})} placeholder="Slug" className="w-full rounded-lg border px-3 py-2"/><select value={form.status} onChange={e=>setForm({...form,status:e.target.value})} className="w-full rounded-lg border px-3 py-2"><option>active</option><option>completed</option><option>converted</option><option>archived</option></select><textarea value={form.content} onChange={e=>setForm({...form,content:e.target.value})} rows={15} placeholder="Research notes..." className="w-full rounded-lg border px-3 py-2 font-mono text-sm"/><button className="rounded-lg bg-gray-900 px-4 py-2 text-sm text-white">{editing?"Update note":"Add note"}</button></form><div className="rounded-xl border bg-white divide-y">{rows.map(x=><div key={x.id} className="p-4 flex justify-between"><div><div className="font-medium">{x.title}</div><div className="text-xs text-gray-500">{x.status} · {new Date(x.updated_at).toLocaleDateString()}</div></div><div className="flex gap-3"><button className="text-sm text-gray-600" onClick={()=>{setEditing(x);setForm({...x})}}>Edit</button>{x.status!=="converted"&&<button className="text-sm text-gray-600" onClick={async()=>{if(confirm("Convert this note into a draft research post?")){await apiFetch("/api/content/admin/research-notes/"+x.id+"/convert",{method:"POST"});load()}}}>Convert</button>}</div></div>)}</div></div></AdminShell>
+  return <AdminShell><div><div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-teal-700">Knowledge workbench</div><h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">Research</h1><p className="mt-2 text-sm text-slate-500">Capture investigations privately, then convert finished work into publishable research.</p></div><div className="mt-7 grid lg:grid-cols-[380px_1fr] gap-6 items-start"><form onSubmit={save} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-3"><div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">{editing?"Edit note":"New note"}</div><input required value={form.title} onChange={e=>setForm({...form,title:e.target.value})} placeholder="Title" className="w-full rounded-xl border border-slate-200 px-3 py-2.5"/><input value={form.slug} onChange={e=>setForm({...form,slug:e.target.value})} placeholder="Slug" className="w-full rounded-xl border border-slate-200 px-3 py-2.5"/><select value={form.status} onChange={e=>setForm({...form,status:e.target.value})} className="w-full rounded-xl border border-slate-200 px-3 py-2.5"><option>active</option><option>completed</option><option>converted</option><option>archived</option></select><textarea value={form.content} onChange={e=>setForm({...form,content:e.target.value})} rows={15} placeholder="Research notes…" className="w-full rounded-xl border border-slate-200 px-3 py-2.5 font-mono text-sm"/><button className="rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-medium text-white">{editing?"Update note":"Add note"}</button></form><div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">{rows.length?rows.map(x=><div key={x.id} className="p-5 flex items-center justify-between gap-4 border-b last:border-0 border-slate-100"><div><div className="font-medium text-slate-950">{x.title}</div><div className="mt-1 text-xs text-slate-400">{x.status} · {new Date(x.updated_at).toLocaleDateString()}</div></div><div className="flex gap-3"><button className="text-sm text-slate-600 hover:text-slate-950" onClick={()=>{setEditing(x);setForm({...x})}}>Edit</button>{x.status!=="converted"&&<button className="text-sm text-slate-600 hover:text-slate-950" onClick={async()=>{if(confirm("Convert this note into a draft research post?")){await apiFetch("/api/content/admin/research-notes/"+x.id+"/convert",{method:"POST"});load()}}}>Convert</button>}</div></div>):<div className="p-10"><EmptyState title="No research notes yet." /></div>}</div></div></AdminShell>
 }
 
 function MediaManager(){
  const [rows,setRows]=useState<any[]>([]),[error,setError]=useState("");const load=()=>apiFetch("/api/content/media").then(setRows).catch((e:any)=>setError(e.message));useEffect(load,[]);
  const upload=async(e:any)=>{e.preventDefault();const f=(document.getElementById("media-file") as HTMLInputElement).files?.[0];if(!f)return;const fd=new FormData();fd.append("file",f);try{await apiFetch("/api/content/media",{method:"POST",body:fd});load()}catch(e:any){setError(e.message)}};
- return <AdminShell><h1 className="text-3xl font-semibold">Media</h1><p className="mt-2 text-gray-500">Cloudinary-backed image library.</p><form onSubmit={upload} className="mt-8 rounded-xl border bg-white p-5 flex gap-3"><input id="media-file" type="file" accept="image/*" className="flex-1"/><button className="rounded-lg bg-gray-900 px-4 py-2 text-sm text-white">Upload</button></form>{error&&<p className="mt-3 text-sm text-red-600">{error}</p>}<div className="mt-6 grid grid-cols-2 md:grid-cols-4 gap-4">{rows.map(x=><div key={x.id} className="rounded-xl border overflow-hidden bg-white"><img src={x.secure_url||x.url} className="aspect-video object-cover w-full"/><p className="p-3 text-sm truncate">{x.filename}</p></div>)}</div></AdminShell>
+ return <AdminShell><div><div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-teal-700">Assets</div><h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">Media</h1><p className="mt-2 text-sm text-slate-500">Cloudinary-backed image library for covers and article content.</p></div><form onSubmit={upload} className="mt-7 flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:flex-row md:items-center"><input id="media-file" type="file" accept="image/*" className="min-w-0 flex-1 text-sm text-slate-600"/><button className="rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-medium text-white">Upload image</button></form>{error&&<p className="mt-3 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}{rows.length?<div className="mt-6 grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-4">{rows.map(x=><div key={x.id} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"><img src={x.secure_url||x.url} className="aspect-video w-full object-cover"/><p className="truncate border-t border-slate-100 p-3 text-sm text-slate-600">{x.filename}</p></div>)}</div>:<div className="mt-6"><EmptyState title="No media uploaded yet." description="Upload an image to use it in articles and project pages." /></div>}</AdminShell>
 }
 
-function SettingsManager(){const [s,setS]=useState<any>({site_title:"Vijevira Labs",site_tagline:"Engineering, Research & Building.",site_description:"",github_url:"",author_name:"Vijevira Labs"}),[saved,setSaved]=useState(false);useEffect(()=>{apiFetch("/api/content/settings").then((x:any)=>setS((v:any)=>({...v,...x}))).catch(()=>{})},[]);const save=async(e:any)=>{e.preventDefault();await apiFetch("/api/content/settings",{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(s)});setSaved(true);setTimeout(()=>setSaved(false),1500)};return <AdminShell><h1 className="text-3xl font-semibold">Settings</h1><form onSubmit={save} className="mt-8 max-w-2xl rounded-xl border bg-white p-6 space-y-4">{Object.entries(s).map(([k,v]:any)=><label key={k} className="block text-sm font-medium">{k.replaceAll("_"," ")}<input value={v||""} onChange={e=>setS((x:any)=>({...x,[k]:e.target.value}))} className="mt-2 w-full rounded-lg border px-3 py-2"/></label>)}<button className="rounded-lg bg-gray-900 px-4 py-2 text-sm text-white">Save</button>{saved&&<span className="ml-3 text-sm text-green-700">Saved.</span>}</form></AdminShell>}
+function SettingsManager(){const [s,setS]=useState<any>({site_title:"Vijevira Labs",site_tagline:"Engineering, Research & Building.",site_description:"",github_url:"",author_name:"Vijevira Labs"}),[saved,setSaved]=useState(false);useEffect(()=>{apiFetch("/api/content/settings").then((x:any)=>setS((v:any)=>({...v,...x}))).catch(()=>{})},[]);const save=async(e:any)=>{e.preventDefault();await apiFetch("/api/content/settings",{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(s)});setSaved(true);setTimeout(()=>setSaved(false),1500)};return <AdminShell><div><div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-teal-700">System</div><h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">Settings</h1><p className="mt-2 text-sm text-slate-500">Control the publication identity and global site metadata.</p></div><form onSubmit={save} className="mt-7 max-w-3xl rounded-2xl border border-slate-200 bg-white p-6 shadow-sm space-y-5">{Object.entries(s).map(([k,v]:any)=><label key={k} className="block text-sm font-medium capitalize text-slate-700">{k.replaceAll("_"," ")}<input value={v||""} onChange={e=>setS((x:any)=>({...x,[k]:e.target.value}))} className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2.5"/></label>)}<div className="flex items-center gap-3"><button className="rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-medium text-white">Save settings</button>{saved&&<span className="text-sm text-emerald-700">Saved.</span>}</div></form></AdminShell>}
 
 
 const ARTICLE_STYLES = `
@@ -298,7 +400,9 @@ const ARTICLE_STYLES = `
 .vl-article hr{margin:2.75rem 0;border:0;border-top:1px solid #e2e8f0}
 .vl-article .vl-inline-code{padding:.16rem .4rem;border-radius:.4rem;background:#f1f5f9;color:#0f172a;font:500 .9em ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace}
 .vl-code-shell{margin:1.5rem 0;border:1px solid #1e293b;border-radius:14px;overflow:hidden;background:#0f172a;box-shadow:0 12px 28px rgba(15,23,42,.08)}
-.vl-code-label{padding:.55rem .85rem;background:#111827;border-bottom:1px solid #1e293b;color:#94a3b8;font:600 .72rem/1 ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;text-transform:uppercase;letter-spacing:.08em}
+.vl-code-label{display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:.55rem .85rem;background:#111827;border-bottom:1px solid #1e293b;color:#94a3b8;font:600 .72rem/1 ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;text-transform:uppercase;letter-spacing:.08em}
+.vl-code-copy{border:1px solid #334155;border-radius:7px;padding:.3rem .55rem;background:#1e293b;color:#cbd5e1;font:600 .68rem/1 ui-sans-serif,system-ui,sans-serif;text-transform:none;letter-spacing:0;cursor:pointer}
+.vl-code-copy:hover{background:#334155;color:#fff}
 .vl-article pre{margin:0;overflow:auto;padding:1.1rem 1.2rem;color:#e2e8f0;font:500 .9rem/1.75 ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace}
 .vl-table-wrap{margin:1.5rem 0;overflow-x:auto;border:1px solid #e2e8f0;border-radius:14px}
 .vl-article table{width:100%;border-collapse:collapse;min-width:520px;background:#fff}
@@ -311,7 +415,100 @@ const ARTICLE_STYLES = `
 .vl-toc a:hover{color:#0f172a}
 .vl-article .vl-lead{font-size:1.18rem;line-height:1.8;color:#475569}
 `;
-function siteShell(children:any){return <div className="min-h-screen bg-white text-gray-900"><style>{ARTICLE_STYLES}</style><header className="sticky top-0 z-10 border-b bg-white/95 backdrop-blur"><nav className="max-w-6xl mx-auto px-5 h-16 flex items-center justify-between"><a href="/" className="font-semibold text-lg">Vijevira Labs</a><div className="flex items-center gap-4 md:gap-6 text-sm text-gray-600"><a href="/blog">Blog</a><a href="/tools">Tools</a><a href="/projects">Projects</a><a href="/research">Research</a><a href="/search">Search</a><a href="/about">About</a></div></nav></header>{children}<footer className="border-t mt-20"><div className="max-w-6xl mx-auto px-5 py-10 flex justify-between text-sm text-gray-500"><span>Vijevira Labs — Engineering, Research &amp; Building.</span><a href="/rss.xml">RSS</a></div></footer></div>}
+function navIsActive(path:string,href:string){
+  if(href==="/blog") return path==="/blog" || path.startsWith("/blog/") || path.startsWith("/topics/") || path.startsWith("/tags/");
+  if(href==="/tools") return path==="/tools" || path.startsWith("/tools/");
+  if(href==="/projects") return path==="/projects" || path.startsWith("/projects/");
+  if(href==="/research") return path==="/research" || path.startsWith("/research/");
+  return path===href;
+}
+function SiteHeader(){
+  const [open,setOpen]=useState(false);
+  const path=location.pathname;
+  const links=[
+    ["/blog","Blog"],["/research","Research"],["/tools","Tools"],["/projects","Projects"],["/search","Search"],["/about","About"]
+  ];
+  return <header className="sticky top-0 z-30 border-b border-slate-200/90 bg-white/92 backdrop-blur-xl">
+    <nav className="max-w-6xl mx-auto px-5 h-[68px] flex items-center justify-between gap-5">
+      <a href="/" className="flex items-center gap-3 shrink-0">
+        <span className="grid h-9 w-9 place-items-center rounded-xl bg-slate-950 text-[11px] font-bold tracking-tight text-white shadow-sm">VL</span>
+        <span className="hidden sm:block">
+          <span className="block text-[15px] font-semibold tracking-tight text-slate-950">Vijevira Labs</span>
+          <span className="block text-[10px] font-medium uppercase tracking-[0.18em] text-slate-400">Engineering · Research · Building</span>
+        </span>
+      </a>
+      <div className="hidden md:flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50/70 p-1">
+        {links.map(([href,label])=><a key={href} href={href} className={`rounded-full px-3.5 py-1.5 text-sm transition ${navIsActive(path,href)?"bg-white text-slate-950 shadow-sm":"text-slate-500 hover:text-slate-950"}`}>{label}</a>)}
+      </div>
+      <div className="md:hidden flex items-center gap-2">
+        <a href="/search" aria-label="Search" className="grid h-9 w-9 place-items-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50">⌕</a>
+        <button type="button" aria-label="Toggle navigation" aria-expanded={open} onClick={()=>setOpen(v=>!v)} className="grid h-9 w-9 place-items-center rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50">{open?"×":"☰"}</button>
+      </div>
+    </nav>
+    {open&&<div className="md:hidden border-t border-slate-200 bg-white">
+      <div className="max-w-6xl mx-auto px-5 py-3 grid gap-1">
+        {links.map(([href,label])=><a key={href} href={href} onClick={()=>setOpen(false)} className={`rounded-lg px-3 py-2.5 text-sm ${navIsActive(path,href)?"bg-slate-100 font-medium text-slate-950":"text-slate-600 hover:bg-slate-50"}`}>{label}</a>)}
+      </div>
+    </div>}
+  </header>;
+}
+function SectionHeader({eyebrow,title,description,href,linkLabel}:{eyebrow?:string,title:string,description?:string,href?:string,linkLabel?:string}){
+  return <div className="flex flex-wrap items-end justify-between gap-4">
+    <div>
+      {eyebrow&&<div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-teal-700">{eyebrow}</div>}
+      <h2 className="mt-1.5 text-2xl font-semibold tracking-tight text-slate-950 md:text-3xl">{title}</h2>
+      {description&&<p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">{description}</p>}
+    </div>
+    {href&&<a href={href} className="text-sm font-medium text-slate-600 hover:text-slate-950">{linkLabel||"View all"} →</a>}
+  </div>;
+}
+function Meta({children}:{children:any}){return <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-medium uppercase tracking-[0.08em] text-slate-400">{children}</div>}
+function PostCard({post,featured=false}:{post:any,featured?:boolean}){
+  return <a href={"/blog/"+post.slug} className={`group block overflow-hidden rounded-2xl border border-slate-200 bg-white transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-lg hover:shadow-slate-900/5 ${featured?"md:grid md:grid-cols-[1.15fr_.85fr]":""}`}>
+    {post.cover_secure_url&&<div className={`overflow-hidden bg-slate-100 ${featured?"md:min-h-full":"aspect-[16/9]"}`}><img src={post.cover_secure_url} alt="" loading="lazy" className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.02]"/></div>}
+    <div className={`p-5 ${featured?"md:p-7 lg:p-8":"md:p-6"}`}>
+      <Meta><span>{post.content_type||"article"}</span><span>·</span><span>{post.category_name||"Uncategorized"}</span>{post.published_at&&<><span>·</span><span>{dateFmt(post.published_at)}</span></>}</Meta>
+      <h3 className={`mt-3 font-semibold tracking-tight text-slate-950 group-hover:text-teal-800 ${featured?"text-2xl leading-tight md:text-3xl lg:text-4xl":"text-xl leading-snug"}`}>{post.title}</h3>
+      {post.description&&<p className={`mt-3 leading-7 text-slate-600 ${featured?"text-base md:text-lg":"text-sm"}`}>{post.description}</p>}
+      <div className="mt-5 text-sm font-medium text-slate-500">{post.reading_time?post.reading_time+" min read":"Read article"} <span className="transition-transform group-hover:translate-x-0.5 inline-block">→</span></div>
+    </div>
+  </a>;
+}
+function CollectionCard({item,kind}:{item:any,kind:"tools"|"projects"|"research"}){
+  const title=item.name||item.title;
+  const href=kind==="research"?"/research/"+item.id:"/"+kind+"/"+item.slug;
+  return <a href={href} className="group block rounded-2xl border border-slate-200 bg-white p-6 transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-lg hover:shadow-slate-900/5">
+    <Meta><span>{kind==="tools"?(item.pricing_type||"Tool"):(kind==="projects"?(item.status||"Project"):"Research")}</span></Meta>
+    <h3 className="mt-3 text-xl font-semibold tracking-tight text-slate-950 group-hover:text-teal-800">{title}</h3>
+    {item.description&&<p className="mt-2 text-sm leading-6 text-slate-600">{item.description}</p>}
+    <span className="mt-5 inline-block text-sm font-medium text-slate-500">Explore →</span>
+  </a>;
+}
+function EmptyState({title,description}:{title:string,description?:string}){return <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50/70 px-6 py-12 text-center"><div className="text-sm font-medium text-slate-700">{title}</div>{description&&<p className="mt-2 text-sm text-slate-500">{description}</p>}</div>}
+function ArticleToc({headings}:{headings:any[]}){
+  const [active,setActive]=useState(headings[0]?.id||"");
+  useEffect(()=>{
+    const observer=new IntersectionObserver(entries=>{
+      const visible=entries.filter(e=>e.isIntersecting).sort((a,b)=>a.boundingClientRect.top-b.boundingClientRect.top);
+      if(visible[0]?.target?.id)setActive(visible[0].target.id);
+    },{rootMargin:"-88px 0px -65% 0px",threshold:[0,0.25,1]});
+    const els=headings.map(x=>document.getElementById(x.id)).filter(Boolean) as HTMLElement[];
+    els.forEach(el=>observer.observe(el));
+    return ()=>observer.disconnect();
+  },[headings.map(x=>x.id).join("|")]);
+  const links=headings;
+  return <>
+    <aside className="hidden lg:block vl-toc rounded-2xl border border-slate-200 bg-slate-50/75 p-4">
+      <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">On this page</div>
+      <nav className="mt-3">{links.map(x=><a key={x.id} href={"#"+x.id} className={`block rounded-lg border-l-2 py-1.5 text-[13px] leading-5 no-underline transition ${x.level===3?"pl-6":"pl-3"} ${active===x.id?"border-teal-600 bg-white font-medium text-slate-950":"border-transparent text-slate-500 hover:text-slate-900"}`}>{x.label}</a>)}</nav>
+    </aside>
+    <details className="lg:hidden rounded-xl border border-slate-200 bg-slate-50/75">
+      <summary className="cursor-pointer list-none px-4 py-3 text-sm font-medium text-slate-700">On this page</summary>
+      <nav className="border-t border-slate-200 px-3 py-2">{links.map(x=><a key={x.id} href={"#"+x.id} className="block px-2 py-2 text-sm text-slate-600">{x.label}</a>)}</nav>
+    </details>
+  </>;
+}
+function siteShell(children:any){return <div className="min-h-screen bg-white text-slate-900"><style>{ARTICLE_STYLES}</style><SiteHeader/>{children}<footer className="mt-20 border-t border-slate-200"><div className="max-w-6xl mx-auto px-5 py-10"><div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between"><div><div className="text-sm font-semibold text-slate-900">Vijevira Labs</div><div className="mt-1 text-sm text-slate-500">Engineering, Research &amp; Building.</div></div><div className="flex items-center gap-4 text-sm text-slate-500"><a href="/rss.xml" className="hover:text-slate-900">RSS</a><a href="/source" className="hover:text-slate-900">Source</a></div></div><div className="mt-6 text-xs text-slate-400">Practical engineering knowledge, research, tools, and projects.</div></div></footer></div>}
 function escapeHtml(value:string){
   return String(value||"")
     .replaceAll("&","&amp;")
@@ -370,7 +567,7 @@ function renderMarkdown(value:string){
     const block= line.match(/^@@BLOCK(\d+)@@$/);
     if(block){
       const item=codeBlocks[Number(block[1])] as any;
-      html.push(`<div class="vl-code-shell"><div class="vl-code-label">${escapeHtml(item.lang)}</div><pre><code>${item.code}</code></pre></div>`);
+      html.push(`<div class="vl-code-shell"><div class="vl-code-label"><span>${escapeHtml(item.lang)}</span><button type="button" class="vl-code-copy">Copy</button></div><pre><code>${item.code}</code></pre></div>`);
       i++;continue;
     }
 
@@ -427,78 +624,132 @@ function renderMarkdown(value:string){
   return {html:html.join(""),headings};
 }
 
-function Md({value,article=false}:{value:string,article?:boolean}){
+function Md({value,article=false,toc=true}:{value:string,article?:boolean,toc?:boolean}){
   const source=article ? String(value||"").replace(/^#\s+.+(?:\r?\n|$)/,"") : value;
   const rendered=renderMarkdown(source);
-  const toc=article && rendered.headings.length>1 ? <aside className="hidden lg:block vl-toc rounded-xl border border-gray-200 bg-gray-50/70 p-4">
-      <div className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-2">On this page</div>
-      <nav>{rendered.headings.filter(x=>x.level<=2).map(x=><a key={x.id} href={"#"+x.id} className={x.level===3?"pl-3":""}>{x.label}</a>)}</nav>
-    </aside> : null;
-  if(!article) return <div className="vl-article" dangerouslySetInnerHTML={{__html:rendered.html}}/>;
+  useEffect(()=>{
+    const buttons=Array.from(document.querySelectorAll(".vl-code-copy"));
+    const handlers=buttons.map(button=>{
+      const handler=async()=>{
+        const shell=button.parentElement?.parentElement;
+        const code=shell?.querySelector("pre")?.textContent||"";
+        try{await navigator.clipboard.writeText(code);button.textContent="Copied";setTimeout(()=>{button.textContent="Copy"},1200)}catch{button.textContent="Copy failed";setTimeout(()=>{button.textContent="Copy"},1200)}
+      };
+      button.addEventListener("click",handler);
+      return ()=>button.removeEventListener("click",handler);
+    });
+    return ()=>handlers.forEach(cleanup=>cleanup());
+  },[rendered.html]);
+  if(!article || !toc) return <div className="vl-article min-w-0" dangerouslySetInnerHTML={{__html:rendered.html}}/>;
+  const headings=rendered.headings.filter((x:any)=>x.level>=2 && x.level<=3);
   return <div className="grid lg:grid-cols-[220px_minmax(0,1fr)] gap-8 lg:gap-12 items-start">
-    {toc}
-    <div className="vl-article" dangerouslySetInnerHTML={{__html:rendered.html}}/>
+    {headings.length>0&&<ArticleToc headings={headings}/>}
+    <div className="vl-article min-w-0" dangerouslySetInnerHTML={{__html:rendered.html}}/>
   </div>;
 }
-function HomePublic(){const [posts,setPosts]=useState<any[]>([]);useEffect(()=>{apiFetch("/api/posts?status=published&limit=4").then(setPosts).catch(()=>{})},[]);return siteShell(<><main className="max-w-6xl mx-auto px-5 py-24"><p className="text-sm font-medium text-gray-500">Engineering, Research &amp; Building.</p><h1 className="mt-4 text-5xl md:text-6xl font-bold tracking-tight">Vijevira Labs</h1><p className="mt-6 max-w-2xl text-xl leading-8 text-gray-600">Practical engineering notes, research, production lessons, developer tools, and projects built around useful, real-world systems.</p><div className="mt-10 flex gap-3"><a href="/blog" className="rounded-lg bg-gray-900 px-5 py-3 text-white">Read the blog</a><a href="/projects" className="rounded-lg border px-5 py-3">Projects</a></div></main>{posts.length>0&&<section className="max-w-6xl mx-auto px-5 pb-16"><h2 className="text-2xl font-semibold">Latest writing</h2><div className="mt-5 grid md:grid-cols-2 gap-5">{posts.map(p=><a key={p.id} href={"/blog/"+p.slug} className="rounded-2xl border p-6"><div className="text-xs text-gray-500">{p.content_type} · {p.category_name||"Uncategorized"}</div><div className="mt-2 text-xl font-semibold">{p.title}</div><p className="mt-2 text-gray-600">{p.description}</p></a>)}</div></section>}</>)}
-function BlogPublic(){const [rows,setRows]=useState<any[]>([]);useEffect(()=>{apiFetch("/api/posts?status=published&limit=100").then(setRows).catch(()=>{})},[]);return siteShell(<main className="max-w-4xl mx-auto px-5 py-16"><h1 className="text-4xl font-bold">Blog</h1><p className="mt-3 text-gray-600">Engineering articles, tutorials, guides, comparisons and build notes.</p><div className="mt-10 space-y-5">{rows.map(p=><article key={p.id} className="rounded-2xl border p-6"><div className="text-xs text-gray-500">{p.content_type} · {p.category_name||"Uncategorized"} · {dateFmt(p.published_at)}</div><h2 className="mt-2 text-2xl font-semibold"><a href={"/blog/"+p.slug}>{p.title}</a></h2><p className="mt-2 text-gray-600">{p.description}</p></article>)}{rows.length===0&&<div className="rounded-xl border p-10 text-center text-gray-500">No published posts yet.</div>}</div></main>)}
+function HomePublic(){
+  const [posts,setPosts]=useState<any[]>([]);
+  useEffect(()=>{apiFetch("/api/posts?status=published&limit=6").then(setPosts).catch(()=>{})},[]);
+  const featured=posts.find(p=>!!p.featured)||posts[0],latest=posts.filter(p=>Number(p.id)!==Number(featured?.id)).slice(0,4);
+  return siteShell(<>
+    <main className="border-b border-slate-200 bg-[radial-gradient(circle_at_top_right,_rgba(13,148,136,.10),_transparent_38%),linear-gradient(180deg,#f8fafc_0%,#fff_74%)]">
+      <div className="max-w-6xl mx-auto px-5 py-20 md:py-28">
+        <Meta><span>Vijevira Labs</span><span>·</span><span>Engineering · Research · Building</span></Meta>
+        <h1 className="mt-5 max-w-4xl text-5xl font-bold tracking-[-0.04em] text-slate-950 md:text-7xl md:leading-[1.02]">Practical engineering knowledge for people who build.</h1>
+        <p className="mt-6 max-w-2xl text-lg leading-8 text-slate-600 md:text-xl">Technical articles, research, developer tools, and project notes drawn from real-world software systems, experiments, and implementation work.</p>
+        <div className="mt-9 flex flex-wrap gap-3">
+          <a href="/blog" className="rounded-xl bg-slate-950 px-5 py-3 text-sm font-medium text-white shadow-sm transition hover:bg-slate-800">Read the blog →</a>
+          <a href="/projects" className="rounded-xl border border-slate-300 bg-white px-5 py-3 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:text-slate-950">Explore projects</a>
+        </div>
+      </div>
+    </main>
+    {featured&&<section className="max-w-6xl mx-auto px-5 pt-14 md:pt-20">
+      <SectionHeader eyebrow="Featured" title="Start here" description="The latest long-form work from Vijevira Labs."/>
+      <div className="mt-6"><PostCard post={featured} featured/></div>
+    </section>}
+    {latest.length>0&&<section className="max-w-6xl mx-auto px-5 pt-16">
+      <SectionHeader eyebrow="Writing" title="Latest articles" href="/blog" linkLabel="View all articles"/>
+      <div className="mt-6 grid md:grid-cols-2 gap-5">{latest.slice(0,4).map(p=><PostCard key={p.id} post={p}/>)}</div>
+    </section>}
+    <section className="max-w-6xl mx-auto px-5 pt-16 pb-4">
+      <SectionHeader eyebrow="Explore" title="Inside the lab" description="Follow the work beyond articles."/>
+      <div className="mt-6 grid md:grid-cols-3 gap-5">
+        <a href="/research" className="rounded-2xl border border-slate-200 bg-slate-50/70 p-6 transition hover:bg-white hover:shadow-lg hover:shadow-slate-900/5"><div className="text-xs font-semibold uppercase tracking-[0.14em] text-teal-700">Research</div><h3 className="mt-3 text-xl font-semibold text-slate-950">Investigations & experiments</h3><p className="mt-2 text-sm leading-6 text-slate-600">Technical questions, experiments, findings, and unfinished ideas.</p><span className="mt-5 inline-block text-sm font-medium text-slate-500">Explore research →</span></a>
+        <a href="/tools" className="rounded-2xl border border-slate-200 bg-slate-50/70 p-6 transition hover:bg-white hover:shadow-lg hover:shadow-slate-900/5"><div className="text-xs font-semibold uppercase tracking-[0.14em] text-teal-700">Tools</div><h3 className="mt-3 text-xl font-semibold text-slate-950">Developer tools & services</h3><p className="mt-2 text-sm leading-6 text-slate-600">Curated infrastructure, utilities, APIs, storage, AI tools, and free tiers.</p><span className="mt-5 inline-block text-sm font-medium text-slate-500">Explore tools →</span></a>
+        <a href="/projects" className="rounded-2xl border border-slate-200 bg-slate-50/70 p-6 transition hover:bg-white hover:shadow-lg hover:shadow-slate-900/5"><div className="text-xs font-semibold uppercase tracking-[0.14em] text-teal-700">Projects</div><h3 className="mt-3 text-xl font-semibold text-slate-950">Things being built</h3><p className="mt-2 text-sm leading-6 text-slate-600">Applications, experiments, architecture notes, and build logs.</p><span className="mt-5 inline-block text-sm font-medium text-slate-500">Explore projects →</span></a>
+      </div>
+    </section>
+  </>);
+}
+function BlogPublic(){
+  const [rows,setRows]=useState<any[]>([]),[filter,setFilter]=useState("All");
+  useEffect(()=>{apiFetch("/api/posts?status=published&limit=100").then(setRows).catch(()=>{})},[]);
+  const categories=["All",...Array.from(new Set(rows.map(x=>x.category_name).filter(Boolean)))];
+  const filtered=filter==="All"?rows:rows.filter(x=>x.category_name===filter);
+  return siteShell(<main className="max-w-6xl mx-auto px-5 py-14 md:py-20">
+    <div className="max-w-3xl">
+      <Meta><span>Publication</span><span>·</span><span>{rows.length} {rows.length===1?"article":"articles"}</span></Meta>
+      <h1 className="mt-3 text-4xl font-bold tracking-tight text-slate-950 md:text-5xl">Blog</h1>
+      <p className="mt-3 text-lg leading-7 text-slate-600">Engineering articles, tutorials, guides, comparisons, and build notes.</p>
+    </div>
+    <div className="mt-8 flex gap-2 overflow-x-auto pb-1">{categories.map(c=><button key={c} type="button" onClick={()=>setFilter(c)} className={`shrink-0 rounded-full border px-3.5 py-1.5 text-sm transition ${filter===c?"border-slate-950 bg-slate-950 text-white":"border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-950"}`}>{c}</button>)}</div>
+    {filtered.length>0?<div className="mt-8 space-y-5">{filtered.map(p=><PostCard key={p.id} post={p}/>)}</div>:<div className="mt-8"><EmptyState title="No published articles yet." description="New engineering writing will appear here." /></div>}
+  </main>);
+}
 function PostPublic({slug}:{slug:string}){
   const [p,setP]=useState<any>(null);
   useEffect(()=>{apiFetch("/api/posts/slug/"+encodeURIComponent(slug)).then(setP).catch(()=>setP(false))},[slug]);
-  if(p===false)return siteShell(<main className="max-w-3xl mx-auto px-5 py-20"><h1 className="text-3xl font-bold">Post not found</h1></main>);
-  if(!p)return siteShell(<main className="max-w-3xl mx-auto px-5 py-20 text-gray-500">Loading…</main>);
+  if(p===false)return siteShell(<main className="max-w-3xl mx-auto px-5 py-24"><EmptyState title="Post not found" description="The article may have moved or is no longer published." /></main>);
+  if(!p)return siteShell(<main className="max-w-3xl mx-auto px-5 py-24 text-sm text-slate-500">Loading article…</main>);
 
   const cats=p.categories||[];
   const tags=p.tags||[];
-  const headings=renderMarkdown(String(p.content||"")).headings.filter((x:any)=>x.level<=2);
+  const headings=renderMarkdown(String(p.content||"")).headings.filter((x:any)=>x.level>=2 && x.level<=3);
 
   return siteShell(
-    <main className="max-w-6xl mx-auto px-5 pt-8 pb-14 md:pt-10 md:pb-20">
-      <div className="grid lg:grid-cols-[220px_minmax(0,1fr)] gap-8 lg:gap-12 items-start">
-        <aside className="hidden lg:block vl-toc rounded-xl border border-gray-200 bg-gray-50/70 p-4">
-          <div className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-2">On this page</div>
-          <nav>
-            {headings.map((x:any)=><a key={x.id} href={"#"+x.id}>{x.label}</a>)}
-          </nav>
-        </aside>
-
+    <main className="max-w-6xl mx-auto px-5 pt-7 pb-16 md:pt-10 md:pb-24">
+      <div className="grid lg:grid-cols-[220px_minmax(0,1fr)] gap-7 lg:gap-12 items-start">
+        {headings.length>0&&<ArticleToc headings={headings}/>} 
         <article className="min-w-0">
-          <div className="max-w-4xl">
-            <div className="flex flex-wrap items-center gap-2 text-xs font-medium text-gray-500">
-              <a href="/blog" className="hover:text-gray-900">Blog</a>
-              <span>/</span>
-              <span className="uppercase tracking-wider">{p.content_type}</span>
-              {cats.slice(0,3).map((x:any)=><a key={x.id} href={"/topics/"+x.slug} className="rounded-full border border-gray-200 bg-gray-50 px-2.5 py-1 text-gray-600">{x.name}</a>)}
+          <header className="max-w-4xl">
+            <Meta>
+              <a href="/blog" className="text-teal-700 hover:text-teal-800">Blog</a>
+              <span>·</span>
+              <span>{p.content_type||"article"}</span>
+              {cats.slice(0,3).map((x:any)=><a key={x.id} href={"/topics/"+x.slug} className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 normal-case tracking-normal text-slate-600 hover:border-slate-300 hover:text-slate-950">{x.name}</a>)}
+            </Meta>
+            <h1 className="mt-5 text-4xl font-bold tracking-[-0.04em] leading-[1.06] text-slate-950 md:text-5xl lg:text-6xl">{p.title}</h1>
+            {p.description&&<p className="mt-6 max-w-3xl text-lg leading-8 text-slate-600 md:text-xl">{p.description}</p>}
+            <div className="mt-6 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-slate-500">
+              {p.published_at&&<time dateTime={p.published_at}>{dateFmt(p.published_at)}</time>}
+              {p.reading_time&&<><span>•</span><span>{p.reading_time} min read</span></>}
+              {p.author_name&&<><span>•</span><span>By {p.author_name}</span></>}
             </div>
+          </header>
 
-            <h1 className="mt-5 text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight leading-[1.08] text-gray-950">{p.title}</h1>
-
-            {p.description&&<p className="vl-lead mt-6 max-w-3xl">{p.description}</p>}
-
-            <div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-gray-500">
-              {p.published_at&&<span>{dateFmt(p.published_at)}</span>}
-              {p.reading_time&&<span>{p.reading_time} min read</span>}
-              <span>{p.content_type}</span>
-            </div>
-          </div>
-
-          {p.cover_secure_url&&<figure className="mt-9 md:mt-10 overflow-hidden rounded-2xl border border-gray-200 bg-gray-50 shadow-sm">
-            <img src={p.cover_secure_url} alt={p.title} className="w-full max-h-[560px] object-cover"/>
+          {p.cover_secure_url&&<figure className="mt-9 overflow-hidden rounded-2xl border border-slate-200 bg-slate-100 shadow-sm">
+            <img src={p.cover_secure_url} alt={p.title} className="w-full max-h-[600px] object-cover"/>
           </figure>}
 
-          <div className="mt-10 md:mt-12">
-            <Md value={p.content}/>
+          <div className="mt-10 md:mt-14 max-w-3xl">
+            <Md value={p.content} article toc={false}/>
           </div>
 
-          {tags.length>0&&<div className="mt-14 max-w-3xl border-t border-gray-200 pt-6">
-            <div className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-3">Tags</div>
-            <div className="flex flex-wrap gap-2">
-              {tags.map((x:any)=><a href={"/tags/"+x.slug} className="rounded-full bg-gray-100 px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-200" key={x.id}>{x.name}</a>)}
+          {tags.length>0&&<div className="mt-14 max-w-3xl border-t border-slate-200 pt-6">
+            <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">Topics & tags</div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {tags.map((x:any)=><a href={"/tags/"+x.slug} className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:border-slate-300 hover:text-slate-950" key={x.id}>{x.name}</a>)}
             </div>
           </div>}
 
-          <div className="mt-10">
-            <a href="/blog" className="inline-flex items-center rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">← Back to all posts</a>
+          {p.related_posts?.length>0&&<section className="mt-14 border-t border-slate-200 pt-8">
+            <SectionHeader eyebrow="Continue reading" title="Related articles"/>
+            <div className="mt-5 grid md:grid-cols-2 gap-5">{p.related_posts.slice(0,2).map((x:any)=><PostCard key={x.id} post={x}/>)}</div>
+          </section>}
+
+          <div className="mt-10 flex flex-wrap gap-3">
+            <a href="/blog" className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 hover:border-slate-300 hover:text-slate-950">← All articles</a>
+            <a href="/search" className="rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-800">Search the lab</a>
           </div>
         </article>
       </div>
@@ -507,20 +758,85 @@ function PostPublic({slug}:{slug:string}){
 }
 
 function dateFmt(s:any){return s?new Date(s).toLocaleDateString("en-IN",{year:"numeric",month:"short",day:"numeric"}):""}
-function CollectionPublic({kind}:{kind:"tools"|"projects"|"research"}){const [rows,setRows]=useState<any[]>([]);useEffect(()=>{apiFetch(kind==="research"?"/api/content/research":"/api/content/"+kind).then(setRows).catch(()=>{})},[kind]);return siteShell(<main className="max-w-5xl mx-auto px-5 py-16"><h1 className="text-4xl font-bold">{kind[0].toUpperCase()+kind.slice(1)}</h1><div className="mt-10 grid md:grid-cols-2 gap-5">{rows.map(x=><article className="rounded-2xl border p-6" key={x.id}><div className="text-xs text-gray-500">{kind==="tools"?(x.pricing_type||"Tool"):(kind==="projects"?x.status:"Research")}</div><h2 className="mt-2 text-xl font-semibold"><a href={kind==="research"?"/research/"+x.id:"/"+kind+"/"+x.slug}>{x.name||x.title}</a></h2><p className="mt-2 text-gray-600">{x.description}</p></article>)}{!rows.length&&<div className="rounded-xl border p-10 text-center text-gray-500">Nothing published here yet.</div>}</div></main>)}
-function DetailPublic({kind,slug}:{kind:"tools"|"projects",slug:string}){const [x,setX]=useState<any>(null);useEffect(()=>{apiFetch("/api/content/"+kind).then((rows:any[])=>setX(rows.find(r=>r.slug===slug)||false)).catch(()=>setX(false))},[kind,slug]);if(!x)return siteShell(<main className="max-w-3xl mx-auto px-5 py-20 text-gray-500">{x===false?"Not found":"Loading…"}</main>);return siteShell(<main className="max-w-3xl mx-auto px-5 py-16"><div className="text-xs uppercase tracking-wider text-gray-500">{kind}</div><h1 className="mt-3 text-4xl font-bold">{x.name}</h1><p className="mt-4 text-xl text-gray-600">{x.description}</p>{x.website_url&&<p className="mt-5"><a className="underline" href={x.website_url} target="_blank" rel="noreferrer">Website</a></p>}{kind==="projects"&&(x.repository_url||x.demo_url)&&<div className="mt-5 flex gap-4 text-sm">{x.repository_url&&<a className="underline" href={x.repository_url} target="_blank" rel="noreferrer">Repository</a>}{x.demo_url&&<a className="underline" href={x.demo_url} target="_blank" rel="noreferrer">Demo</a>}</div>}<div className="mt-10"><Md value={x.content||x.long_description||""}/></div></main>)}
-function ResearchPublic(){const [rows,setRows]=useState<any[]>([]);useEffect(()=>{apiFetch("/api/content/research").then(setRows).catch(()=>{})},[]);return siteShell(<main className="max-w-5xl mx-auto px-5 py-16"><h1 className="text-4xl font-bold">Research</h1><p className="mt-3 text-gray-600">Published technical research and investigations.</p><div className="mt-10 grid md:grid-cols-2 gap-5">{rows.map(x=><a href={"/research/"+x.id} className="rounded-2xl border p-6" key={x.id}><div className="text-xs text-gray-500">{dateFmt(x.published_at)}</div><h2 className="mt-2 text-xl font-semibold">{x.title}</h2><p className="mt-2 text-gray-600">{x.description}</p></a>)}</div></main>)}
-function ResearchDetailPublic({id}:{id:string}){const [x,setX]=useState<any>(null);useEffect(()=>{apiFetch("/api/content/research/"+id).then(setX).catch(()=>setX(false))},[id]);if(!x)return siteShell(<main className="max-w-3xl mx-auto px-5 py-20 text-gray-500">{x===false?"Not found":"Loading…"}</main>);return siteShell(<article className="max-w-3xl mx-auto px-5 py-16"><div className="text-xs text-gray-500">Research · {dateFmt(x.published_at)}</div><h1 className="mt-3 text-4xl font-bold">{x.title}</h1><p className="mt-4 text-xl text-gray-600">{x.description}</p><div className="mt-10"><Md value={x.content}/></div></article>)}
-function SearchPublic(){const [rows,setRows]=useState<any[]>([]),[q,setQ]=useState("");const run=async(e:any)=>{e.preventDefault();setRows(await apiFetch("/api/posts?status=published&limit=100&q="+encodeURIComponent(q)))};return siteShell(<main className="max-w-4xl mx-auto px-5 py-16"><h1 className="text-4xl font-bold">Search</h1><form onSubmit={run} className="mt-6 flex gap-2"><input value={q} onChange={e=>setQ(e.target.value)} placeholder="Search posts..." className="flex-1 rounded-lg border px-3 py-2"/><button className="rounded-lg bg-gray-900 px-4 text-white">Search</button></form><div className="mt-8 space-y-4">{rows.map(x=><a key={x.id} href={"/blog/"+x.slug} className="block rounded-xl border p-5"><div className="font-medium">{x.title}</div><p className="mt-1 text-sm text-gray-600">{x.description}</p></a>)}</div></main>)}
-function AboutPublic(){return siteShell(<main className="max-w-3xl mx-auto px-5 py-16"><h1 className="text-4xl font-bold">About Vijevira Labs</h1><div className="mt-8 space-y-5 text-lg leading-8 text-gray-700"><p>Vijevira Labs is an independent engineering lab for building, researching, documenting, and sharing practical software systems.</p><p>Content connects with tools, technologies, projects, experiments, and production lessons so technical knowledge stays useful beyond a single post.</p></div></main>)}
-function TaxonomyPublic({slug}:{slug:string}){const [data,setData]=useState<any[]>([]),[posts,setPosts]=useState<any[]>([]);useEffect(()=>{apiFetch("/api/taxonomy/categories").then((c:any[])=>{const row=c.find((x:any)=>x.slug===slug);setData(row?[row]:[]);if(row)return apiFetch("/api/posts?status=published&limit=100&category_id="+encodeURIComponent(row.id)).then(setPosts);setPosts([])}).catch(()=>{})},[slug]);const c=data[0];return siteShell(<main className="max-w-4xl mx-auto px-5 py-16"><div className="text-sm text-gray-500">Topic</div><h1 className="mt-2 text-4xl font-bold">{c?.name||slug}</h1><p className="mt-3 text-gray-600">{c?.description}</p><div className="mt-8 space-y-4">{posts.map(x=><a className="block rounded-xl border p-5" href={"/blog/"+x.slug} key={x.id}><div className="font-medium">{x.title}</div><p className="mt-1 text-sm text-gray-600">{x.description}</p></a>)}</div>{!posts.length&&c&&<p className="mt-8 text-gray-500">No published posts in this topic yet.</p>}</main>)}
+function CollectionPublic({kind}:{kind:"tools"|"projects"|"research"}){
+  const [rows,setRows]=useState<any[]>([]);
+  useEffect(()=>{apiFetch(kind==="research"?"/api/content/research":"/api/content/"+kind).then(setRows).catch(()=>{})},[kind]);
+  const meta=kind==="tools"?["Developer directory","Discover useful services, infrastructure, and free tiers."]:kind==="projects"?["Build log","Applications, experiments, architecture, and things being built."]:["Technical investigations","Experiments, findings, and research notes worth sharing."];
+  return siteShell(<main className="max-w-6xl mx-auto px-5 py-14 md:py-20">
+    <div className="max-w-3xl"><Meta><span>{meta[0]}</span></Meta><h1 className="mt-3 text-4xl font-bold tracking-tight text-slate-950 md:text-5xl">{kind[0].toUpperCase()+kind.slice(1)}</h1><p className="mt-3 text-lg leading-7 text-slate-600">{meta[1]}</p></div>
+    {rows.length>0?<div className="mt-9 grid md:grid-cols-2 lg:grid-cols-3 gap-5">{rows.map(x=><CollectionCard key={x.id} item={x} kind={kind}/>)}</div>:<div className="mt-9"><EmptyState title={`No published ${kind} yet.`} description="New work will appear here as it is published." /></div>}
+  </main>);
+}
+function DetailPublic({kind,slug}:{kind:"tools"|"projects",slug:string}){
+  const [x,setX]=useState<any>(null);
+  useEffect(()=>{apiFetch("/api/content/"+kind).then((rows:any[])=>setX(rows.find(r=>r.slug===slug)||false)).catch(()=>setX(false))},[kind,slug]);
+  if(!x)return siteShell(<main className="max-w-3xl mx-auto px-5 py-24 text-slate-500">{x===false?<EmptyState title="Not found" description="This item may have moved or is no longer published."/>:"Loading…"}</main>);
+  return siteShell(<main className="max-w-5xl mx-auto px-5 py-14 md:py-20">
+    <article className="max-w-4xl">
+      <Meta><a href={"/"+kind} className="text-teal-700 hover:text-teal-800">{kind}</a><span>·</span><span>{kind==="tools"?(x.pricing_type||"Developer tool"):(x.status||"Project")}</span></Meta>
+      {x.logo_url&&kind==="tools"&&<img src={x.logo_url} alt="" className="mt-6 h-14 w-14 rounded-2xl border border-slate-200 bg-white object-contain p-2"/>}
+      <h1 className="mt-5 text-4xl font-bold tracking-tight text-slate-950 md:text-5xl">{x.name}</h1>
+      {x.description&&<p className="mt-4 max-w-3xl text-lg leading-8 text-slate-600">{x.description}</p>}
+      <div className="mt-6 flex flex-wrap gap-2">{x.website_url&&<a className="rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-medium text-white" href={x.website_url} target="_blank" rel="noreferrer">Website ↗</a>}{kind==="projects"&&x.repository_url&&<a className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700" href={x.repository_url} target="_blank" rel="noreferrer">Repository ↗</a>}{kind==="projects"&&x.demo_url&&<a className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700" href={x.demo_url} target="_blank" rel="noreferrer">Live demo ↗</a>}</div>
+      <div className="mt-12 border-t border-slate-200 pt-10"><Md value={x.content||x.long_description||""}/></div>
+    </article>
+  </main>);
+}
+function ResearchPublic(){
+  const [rows,setRows]=useState<any[]>([]);
+  useEffect(()=>{apiFetch("/api/content/research").then(setRows).catch(()=>{})},[]);
+  return siteShell(<main className="max-w-6xl mx-auto px-5 py-14 md:py-20">
+    <div className="max-w-3xl"><Meta><span>Technical investigations</span></Meta><h1 className="mt-3 text-4xl font-bold tracking-tight text-slate-950 md:text-5xl">Research</h1><p className="mt-3 text-lg leading-7 text-slate-600">Questions, experiments, implementation findings, and technical investigations.</p></div>
+    {rows.length>0?<div className="mt-9 grid md:grid-cols-2 lg:grid-cols-3 gap-5">{rows.map(x=><CollectionCard key={x.id} item={x} kind="research"/>)}</div>:<div className="mt-9"><EmptyState title="No published research yet." description="Research notes will appear here as investigations are completed." /></div>}
+  </main>);
+}
+function ResearchDetailPublic({id}:{id:string}){
+  const [x,setX]=useState<any>(null);
+  useEffect(()=>{apiFetch("/api/content/research/"+id).then(setX).catch(()=>setX(false))},[id]);
+  if(!x)return siteShell(<main className="max-w-3xl mx-auto px-5 py-24 text-slate-500">{x===false?<EmptyState title="Research not found" description="This investigation may have moved or is not published yet."/>:"Loading…"}</main>);
+  return siteShell(<main className="max-w-5xl mx-auto px-5 py-14 md:py-20"><article className="max-w-4xl">
+    <Meta><a href="/research" className="text-teal-700 hover:text-teal-800">Research</a>{x.published_at&&<><span>·</span><time dateTime={x.published_at}>{dateFmt(x.published_at)}</time></>}</Meta>
+    <h1 className="mt-4 text-4xl font-bold tracking-tight text-slate-950 md:text-5xl">{x.title}</h1>
+    {x.description&&<p className="mt-4 max-w-3xl text-lg leading-8 text-slate-600">{x.description}</p>}
+    <div className="mt-12 border-t border-slate-200 pt-10 max-w-3xl"><Md value={x.content}/></div>
+    <a href="/research" className="mt-10 inline-flex rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-700 hover:border-slate-300 hover:text-slate-950">← All research</a>
+  </article></main>);
+}
+function SearchPublic(){
+  const [rows,setRows]=useState<any[]>([]),[q,setQ]=useState(""),[loading,setLoading]=useState(false);
+  const run=async(e:any)=>{e.preventDefault();if(!q.trim())return;setLoading(true);try{setRows(await apiFetch("/api/posts?status=published&limit=100&q="+encodeURIComponent(q.trim())))}finally{setLoading(false)}};
+  return siteShell(<main className="max-w-5xl mx-auto px-5 py-14 md:py-20">
+    <div className="max-w-3xl"><Meta><span>Knowledge search</span></Meta><h1 className="mt-3 text-4xl font-bold tracking-tight text-slate-950 md:text-5xl">Search the lab</h1><p className="mt-3 text-lg leading-7 text-slate-600">Find articles across Vijevira Labs.</p></div>
+    <form onSubmit={run} className="mt-8 flex gap-2 rounded-2xl border border-slate-200 bg-slate-50/70 p-2 shadow-sm">
+      <input value={q} onChange={e=>setQ(e.target.value)} placeholder="Search engineering topics, articles, and guides…" aria-label="Search articles" className="min-w-0 flex-1 bg-transparent px-3 py-2.5 text-sm outline-none placeholder:text-slate-400"/>
+      <button disabled={loading} className="rounded-xl bg-slate-950 px-5 py-2.5 text-sm font-medium text-white disabled:opacity-50">{loading?"Searching…":"Search"}</button>
+    </form>
+    {q&&<div className="mt-8 text-sm text-slate-500">{rows.length} {rows.length===1?"result":"results"} for <span className="font-medium text-slate-900">“{q}”</span></div>}
+    <div className="mt-4 space-y-4">{rows.map(x=><a key={x.id} href={"/blog/"+x.slug} className="group block rounded-2xl border border-slate-200 bg-white p-5 transition hover:border-slate-300 hover:shadow-md"><Meta><span>{x.content_type||"article"}</span><span>·</span><span>{x.category_name||"Uncategorized"}</span></Meta><h2 className="mt-2 text-lg font-semibold text-slate-950 group-hover:text-teal-800">{x.title}</h2><p className="mt-1 text-sm leading-6 text-slate-600">{x.description}</p></a>)}</div>
+    {!rows.length&&q&&<div className="mt-6"><EmptyState title="No matching articles." description="Try a broader term or search another concept." /></div>}
+  </main>);
+}
+function AboutPublic(){return siteShell(<main className="max-w-4xl mx-auto px-5 py-16 md:py-20"><div className="max-w-3xl"><Meta><span>About the lab</span></Meta><h1 className="mt-3 text-4xl font-bold tracking-tight text-slate-950 md:text-5xl">About Vijevira Labs</h1><div className="mt-8 space-y-6 text-lg leading-8 text-slate-600"><p>Vijevira Labs is an independent engineering lab for building, researching, documenting, and sharing practical software systems.</p><p>Content connects with tools, technologies, projects, experiments, and production lessons so technical knowledge stays useful beyond a single post.</p></div></div><div className="mt-14 grid md:grid-cols-3 gap-5"><div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-5"><div className="font-semibold text-slate-950">Build</div><p className="mt-2 text-sm leading-6 text-slate-600">Projects and implementation notes from things that are actually being built.</p></div><div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-5"><div className="font-semibold text-slate-950">Investigate</div><p className="mt-2 text-sm leading-6 text-slate-600">Research, experiments, trade-offs, and technical findings.</p></div><div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-5"><div className="font-semibold text-slate-950">Document</div><p className="mt-2 text-sm leading-6 text-slate-600">Articles designed to stay useful after the original problem is solved.</p></div></div></main>)}
+function TaxonomyPublic({slug}:{slug:string}){
+  const [c,setC]=useState<any>(null),[posts,setPosts]=useState<any[]>([]);
+  useEffect(()=>{apiFetch("/api/taxonomy/categories").then((rows:any[])=>{const row=rows.find((x:any)=>x.slug===slug);if(!row){setC(false);return}setC(row);return apiFetch("/api/posts?status=published&limit=100&category_id="+encodeURIComponent(row.id)).then(setPosts)}).catch(()=>setC(false))},[slug]);
+  if(c===false)return siteShell(<main className="max-w-3xl mx-auto px-5 py-24"><EmptyState title="Topic not found" /></main>);
+  if(!c)return siteShell(<main className="max-w-3xl mx-auto px-5 py-24 text-sm text-slate-500">Loading topic…</main>);
+  return siteShell(<main className="max-w-5xl mx-auto px-5 py-14 md:py-20">
+    <div className="max-w-3xl"><Meta><span>Topic</span></Meta><h1 className="mt-3 text-4xl font-bold tracking-tight text-slate-950 md:text-5xl">{c.name}</h1>{c.description&&<p className="mt-3 text-lg leading-7 text-slate-600">{c.description}</p>}</div>
+    {posts.length>0?<div className="mt-9 space-y-5">{posts.map(x=><PostCard key={x.id} post={x}/>)}</div>:<div className="mt-9"><EmptyState title="No published articles in this topic yet." /></div>}
+  </main>);
+}
 
 function TagPublic({slug}:{slug:string}){
   const [data,setData]=useState<any>(null);
   useEffect(()=>{apiFetch("/api/taxonomy/tags/"+encodeURIComponent(slug)+"/posts").then(setData).catch(()=>setData(false))},[slug]);
-  if(data===false)return siteShell(<main className="max-w-3xl mx-auto px-5 py-20"><h1 className="text-3xl font-bold">Tag not found</h1></main>);
-  if(!data)return siteShell(<main className="max-w-3xl mx-auto px-5 py-20 text-gray-500">Loading…</main>);
-  return siteShell(<main className="max-w-4xl mx-auto px-5 py-16"><div className="text-sm text-gray-500">Tag</div><h1 className="mt-2 text-4xl font-bold">{data.tag.name}</h1><div className="mt-8 space-y-4">{data.posts.map((p:any)=><a key={p.id} href={"/blog/"+p.slug} className="block rounded-xl border p-5"><div className="font-medium">{p.title}</div><p className="mt-1 text-sm text-gray-600">{p.description}</p></a>)}</div>{!data.posts.length&&<p className="mt-8 text-gray-500">No published posts use this tag yet.</p>}</main>);
+  if(data===false)return siteShell(<main className="max-w-3xl mx-auto px-5 py-24"><EmptyState title="Tag not found" /></main>);
+  if(!data)return siteShell(<main className="max-w-3xl mx-auto px-5 py-24 text-sm text-slate-500">Loading tag…</main>);
+  return siteShell(<main className="max-w-5xl mx-auto px-5 py-14 md:py-20">
+    <div className="max-w-3xl"><Meta><span>Tag</span></Meta><h1 className="mt-3 text-4xl font-bold tracking-tight text-slate-950 md:text-5xl">{data.tag.name}</h1><p className="mt-3 text-slate-600">{data.posts.length} {data.posts.length===1?"article":"articles"}</p></div>
+    {data.posts.length>0?<div className="mt-9 space-y-5">{data.posts.map((p:any)=><PostCard key={p.id} post={p}/>)}</div>:<div className="mt-9"><EmptyState title="No published articles use this tag yet." /></div>}
+  </main>);
 }
 
 export function App(){
