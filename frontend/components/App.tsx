@@ -239,11 +239,215 @@ function MediaManager(){
 function SettingsManager(){const [s,setS]=useState<any>({site_title:"Vijevira Labs",site_tagline:"Engineering, Research & Building.",site_description:"",github_url:"",author_name:"Vijevira Labs"}),[saved,setSaved]=useState(false);useEffect(()=>{apiFetch("/api/content/settings").then((x:any)=>setS((v:any)=>({...v,...x}))).catch(()=>{})},[]);const save=async(e:any)=>{e.preventDefault();await apiFetch("/api/content/settings",{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(s)});setSaved(true);setTimeout(()=>setSaved(false),1500)};return <AdminShell><h1 className="text-3xl font-semibold">Settings</h1><form onSubmit={save} className="mt-8 max-w-2xl rounded-xl border bg-white p-6 space-y-4">{Object.entries(s).map(([k,v]:any)=><label key={k} className="block text-sm font-medium">{k.replaceAll("_"," ")}<input value={v||""} onChange={e=>setS((x:any)=>({...x,[k]:e.target.value}))} className="mt-2 w-full rounded-lg border px-3 py-2"/></label>)}<button className="rounded-lg bg-gray-900 px-4 py-2 text-sm text-white">Save</button>{saved&&<span className="ml-3 text-sm text-green-700">Saved.</span>}</form></AdminShell>}
 
 
-function siteShell(children:any){return <div className="min-h-screen bg-white text-gray-900"><header className="sticky top-0 z-10 border-b bg-white/95 backdrop-blur"><nav className="max-w-6xl mx-auto px-5 h-16 flex items-center justify-between"><a href="/" className="font-semibold text-lg">Vijevira Labs</a><div className="flex items-center gap-4 md:gap-6 text-sm text-gray-600"><a href="/blog">Blog</a><a href="/tools">Tools</a><a href="/projects">Projects</a><a href="/research">Research</a><a href="/search">Search</a><a href="/about">About</a></div></nav></header>{children}<footer className="border-t mt-20"><div className="max-w-6xl mx-auto px-5 py-10 flex justify-between text-sm text-gray-500"><span>Vijevira Labs — Engineering, Research &amp; Building.</span><a href="/rss.xml">RSS</a></div></footer></div>}
-function Md({value}:{value:string}){let s=String(value||"").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;");s=s.replace(/^### (.*)$/gm,"<h3>$1</h3>").replace(/^## (.*)$/gm,"<h2>$1</h2>").replace(/^# (.*)$/gm,"<h1>$1</h1>").replace(/\*\*(.*?)\*\*/g,"<strong>$1</strong>").replace(/\n\n+/g,"</p><p>");return <div className="prose max-w-none" dangerouslySetInnerHTML={{__html:"<p>"+s.replace(/\n/g,"<br/>")+"</p>"}}/>}
+const ARTICLE_STYLES = `
+.vl-article{font-size:1.08rem;line-height:1.85;color:#334155}
+.vl-article p{margin:1.25rem 0}
+.vl-article h2{margin:3rem 0 1rem;font-size:1.9rem;line-height:1.25;letter-spacing:-.02em;color:#0f172a;scroll-margin-top:6rem}
+.vl-article h3{margin:2.25rem 0 .8rem;font-size:1.35rem;line-height:1.35;color:#0f172a;scroll-margin-top:6rem}
+.vl-article h2:first-child,.vl-article h3:first-child{margin-top:0}
+.vl-article strong{font-weight:700;color:#0f172a}
+.vl-article em{font-style:italic}
+.vl-article a{color:#0f766e;text-decoration:underline;text-decoration-color:#99f6e4;text-underline-offset:3px}
+.vl-article a:hover{text-decoration-color:#0f766e}
+.vl-article ul,.vl-article ol{margin:1.25rem 0;padding-left:1.55rem}
+.vl-article li{margin:.5rem 0;padding-left:.25rem}
+.vl-article li::marker{color:#64748b}
+.vl-article blockquote{margin:1.75rem 0;padding:.9rem 1.2rem;border-left:4px solid #cbd5e1;background:#f8fafc;border-radius:0 12px 12px 0;color:#475569}
+.vl-article hr{margin:2.75rem 0;border:0;border-top:1px solid #e2e8f0}
+.vl-article .vl-inline-code{padding:.16rem .4rem;border-radius:.4rem;background:#f1f5f9;color:#0f172a;font:500 .9em ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace}
+.vl-code-shell{margin:1.5rem 0;border:1px solid #1e293b;border-radius:14px;overflow:hidden;background:#0f172a;box-shadow:0 12px 28px rgba(15,23,42,.08)}
+.vl-code-label{padding:.55rem .85rem;background:#111827;border-bottom:1px solid #1e293b;color:#94a3b8;font:600 .72rem/1 ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;text-transform:uppercase;letter-spacing:.08em}
+.vl-article pre{margin:0;overflow:auto;padding:1.1rem 1.2rem;color:#e2e8f0;font:500 .9rem/1.75 ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace}
+.vl-table-wrap{margin:1.5rem 0;overflow-x:auto;border:1px solid #e2e8f0;border-radius:14px}
+.vl-article table{width:100%;border-collapse:collapse;min-width:520px;background:#fff}
+.vl-article th,.vl-article td{padding:.8rem 1rem;text-align:left;border-bottom:1px solid #e2e8f0}
+.vl-article th{background:#f8fafc;color:#0f172a;font-size:.9rem;font-weight:700}
+.vl-article tr:last-child td{border-bottom:0}
+.vl-article img{display:block;max-width:100%;height:auto;margin:1.5rem auto;border-radius:14px}
+.vl-toc{position:sticky;top:6.5rem}
+.vl-toc a{display:block;padding:.35rem 0;color:#64748b;text-decoration:none;font-size:.82rem;line-height:1.4}
+.vl-toc a:hover{color:#0f172a}
+.vl-article .vl-lead{font-size:1.18rem;line-height:1.8;color:#475569}
+`;
+function siteShell(children:any){return <div className="min-h-screen bg-white text-gray-900"><style>{ARTICLE_STYLES}</style><header className="sticky top-0 z-10 border-b bg-white/95 backdrop-blur"><nav className="max-w-6xl mx-auto px-5 h-16 flex items-center justify-between"><a href="/" className="font-semibold text-lg">Vijevira Labs</a><div className="flex items-center gap-4 md:gap-6 text-sm text-gray-600"><a href="/blog">Blog</a><a href="/tools">Tools</a><a href="/projects">Projects</a><a href="/research">Research</a><a href="/search">Search</a><a href="/about">About</a></div></nav></header>{children}<footer className="border-t mt-20"><div className="max-w-6xl mx-auto px-5 py-10 flex justify-between text-sm text-gray-500"><span>Vijevira Labs — Engineering, Research &amp; Building.</span><a href="/rss.xml">RSS</a></div></footer></div>}
+function escapeHtml(value:string){
+  return String(value||"")
+    .replaceAll("&","&amp;")
+    .replaceAll("<","&lt;")
+    .replaceAll(">","&gt;")
+    .replaceAll('"',"&quot;")
+    .replaceAll("'","&#39;");
+}
+
+function safeUrl(value:string){
+  const url=String(value||"").trim();
+  if(/^https?:\/\//i.test(url) || url.startsWith("/") || url.startsWith("#")) return url;
+  return "#";
+}
+
+function headingId(value:string,index:number){
+  const base=String(value||"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"") || "section";
+  return index ? `${base}-${index+1}` : base;
+}
+
+function inlineMd(value:string){
+  let s=escapeHtml(value);
+  const protectedParts:string[]=[];
+  s=s.replace(/`([^\`]+)`/g,(_,code)=>{const i=protectedParts.push(`<code class="vl-inline-code">${code}</code>`)-1;return `@@INLINE${i}@@`;});
+  s=s.replace(/!\[([^\]]*)\]\(([^)]+)\)/g,(_,alt,url)=>`<img src="${safeUrl(url)}" alt="${alt}" loading="lazy">`);
+  s=s.replace(/\[([^\]]+)\]\(([^)]+)\)/g,(_,label,url)=>`<a href="${safeUrl(url)}"${/^https?:\/\//i.test(String(url))?' target="_blank" rel="noreferrer"':''}>${label}</a>`);
+  s=s.replace(/\*\*(.*?)\*\*/g,"<strong>$1</strong>").replace(/__(.*?)__/g,"<strong>$1</strong>");
+  s=s.replace(/\*([^*]+)\*/g,"<em>$1</em>").replace(/_([^_]+)_/g,"<em>$1</em>");
+  s=s.replace(/~~(.*?)~~/g,"<del>$1</del>");
+  s=s.replace(/@@INLINE(\d+)@@/g,(_,i)=>protectedParts[Number(i)]);
+  return s;
+}
+
+function parseTableRow(line:string){
+  const cleaned=line.trim().replace(/^\|/,"").replace(/\|$/,"");
+  return cleaned.split("|").map(x=>x.trim());
+}
+
+function renderMarkdown(value:string){
+  const raw=String(value||"").replace(/\r\n?/g,"\n");
+  const codeBlocks:string[]=[];
+  const protectedText=raw.replace(/\`\`\`([a-zA-Z0-9_+-]*)\n([\s\S]*?)\`\`\`/g,(_,lang,code)=>{
+    const i=codeBlocks.push({lang:lang||"text",code:escapeHtml(code.replace(/\n$/,""))} as any)-1;
+    return `@@BLOCK${i}@@`;
+  });
+  const lines=protectedText.split("\n");
+  const html:string[]=[];
+  const headings:{id:string,label:string,level:number}[]=[];
+  let i=0;
+
+  while(i<lines.length){
+    const line=lines[i];
+
+    if(!line.trim()){i++;continue;}
+
+    const block= line.match(/^@@BLOCK(\d+)@@$/);
+    if(block){
+      const item=codeBlocks[Number(block[1])] as any;
+      html.push(`<div class="vl-code-shell"><div class="vl-code-label">${escapeHtml(item.lang)}</div><pre><code>${item.code}</code></pre></div>`);
+      i++;continue;
+    }
+
+    const h=line.match(/^(#{1,3})\s+(.+)$/);
+    if(h){
+      const level=h[1].length;
+      const label=h[2].trim();
+      const id=headingId(label,headings.length);
+      headings.push({id,label,level});
+      html.push(`<h${level} id="${id}">${inlineMd(label)}</h${level}>`);
+      i++;continue;
+    }
+
+    if(/^\s*([-*_])(?:\s*\1){2,}\s*$/.test(line)){html.push("<hr>");i++;continue;}
+
+    if(/^\|.*\|$/.test(line) && i+1<lines.length && /^\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)+\|?$/.test(lines[i+1].trim())){
+      const header=parseTableRow(line);
+      i+=2;
+      const rows:string[][]=[];
+      while(i<lines.length && /^\|.*\|$/.test(lines[i].trim())){rows.push(parseTableRow(lines[i]));i++;}
+      html.push(`<div class="vl-table-wrap"><table><thead><tr>${header.map(x=>`<th>${inlineMd(x)}</th>`).join("")}</tr></thead><tbody>${rows.map(r=>`<tr>${header.map((_,j)=>`<td>${inlineMd(r[j]||"")}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`);
+      continue;
+    }
+
+    if(/^\s*[-*+]\s+/.test(line)){
+      const items:string[]=[];
+      while(i<lines.length && /^\s*[-*+]\s+/.test(lines[i])){items.push(lines[i].replace(/^\s*[-*+]\s+/,""));i++;}
+      html.push(`<ul>${items.map(x=>`<li>${inlineMd(x)}</li>`).join("")}</ul>`);
+      continue;
+    }
+
+    if(/^\s*\d+\.\s+/.test(line)){
+      const items:string[]=[];
+      while(i<lines.length && /^\s*\d+\.\s+/.test(lines[i])){items.push(lines[i].replace(/^\s*\d+\.\s+/,""));i++;}
+      html.push(`<ol>${items.map(x=>`<li>${inlineMd(x)}</li>`).join("")}</ol>`);
+      continue;
+    }
+
+    if(/^\s*>\s?/.test(line)){
+      const items:string[]=[];
+      while(i<lines.length && /^\s*>\s?/.test(lines[i])){items.push(lines[i].replace(/^\s*>\s?/,""));i++;}
+      html.push(`<blockquote>${items.map(x=>inlineMd(x)).join("<br>")}</blockquote>`);
+      continue;
+    }
+
+    const paragraph:string[]=[line];
+    i++;
+    while(i<lines.length && lines[i].trim() && !/^#{1,3}\s+/.test(lines[i]) && !/^@@BLOCK\d+@@$/.test(lines[i]) && !/^\s*[-*+]\s+/.test(lines[i]) && !/^\s*\d+\.\s+/.test(lines[i]) && !/^\s*>\s?/.test(lines[i]) && !/^\s*([-*_])(?:\s*\1){2,}\s*$/.test(lines[i])){
+      paragraph.push(lines[i]);i++;
+    }
+    html.push(`<p>${paragraph.map(x=>inlineMd(x.trim())).join(" ")}</p>`);
+  }
+
+  return {html:html.join(""),headings};
+}
+
+function Md({value,article=false}:{value:string,article?:boolean}){
+  const rendered=renderMarkdown(value);
+  return <div className={article ? "grid lg:grid-cols-[minmax(0,1fr)_220px] gap-12 items-start" : ""}>
+    <div className="vl-article" dangerouslySetInnerHTML={{__html:rendered.html}}/>
+    {article && rendered.headings.length>1 && <aside className="hidden lg:block vl-toc rounded-xl border border-gray-200 bg-gray-50/70 p-4">
+      <div className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-2">On this page</div>
+      <nav>{rendered.headings.filter(x=>x.level<=2).map(x=><a key={x.id} href={"#"+x.id} className={x.level===3?"pl-3":""}>{x.label}</a>)}</nav>
+    </aside>}
+  </div>;
+}
 function HomePublic(){const [posts,setPosts]=useState<any[]>([]);useEffect(()=>{apiFetch("/api/posts?status=published&limit=4").then(setPosts).catch(()=>{})},[]);return siteShell(<><main className="max-w-6xl mx-auto px-5 py-24"><p className="text-sm font-medium text-gray-500">Engineering, Research &amp; Building.</p><h1 className="mt-4 text-5xl md:text-6xl font-bold tracking-tight">Vijevira Labs</h1><p className="mt-6 max-w-2xl text-xl leading-8 text-gray-600">Practical engineering notes, research, production lessons, developer tools, and projects built around useful, real-world systems.</p><div className="mt-10 flex gap-3"><a href="/blog" className="rounded-lg bg-gray-900 px-5 py-3 text-white">Read the blog</a><a href="/projects" className="rounded-lg border px-5 py-3">Projects</a></div></main>{posts.length>0&&<section className="max-w-6xl mx-auto px-5 pb-16"><h2 className="text-2xl font-semibold">Latest writing</h2><div className="mt-5 grid md:grid-cols-2 gap-5">{posts.map(p=><a key={p.id} href={"/blog/"+p.slug} className="rounded-2xl border p-6"><div className="text-xs text-gray-500">{p.content_type} · {p.category_name||"Uncategorized"}</div><div className="mt-2 text-xl font-semibold">{p.title}</div><p className="mt-2 text-gray-600">{p.description}</p></a>)}</div></section>}</>)}
 function BlogPublic(){const [rows,setRows]=useState<any[]>([]);useEffect(()=>{apiFetch("/api/posts?status=published&limit=100").then(setRows).catch(()=>{})},[]);return siteShell(<main className="max-w-4xl mx-auto px-5 py-16"><h1 className="text-4xl font-bold">Blog</h1><p className="mt-3 text-gray-600">Engineering articles, tutorials, guides, comparisons and build notes.</p><div className="mt-10 space-y-5">{rows.map(p=><article key={p.id} className="rounded-2xl border p-6"><div className="text-xs text-gray-500">{p.content_type} · {p.category_name||"Uncategorized"} · {dateFmt(p.published_at)}</div><h2 className="mt-2 text-2xl font-semibold"><a href={"/blog/"+p.slug}>{p.title}</a></h2><p className="mt-2 text-gray-600">{p.description}</p></article>)}{rows.length===0&&<div className="rounded-xl border p-10 text-center text-gray-500">No published posts yet.</div>}</div></main>)}
-function PostPublic({slug}:{slug:string}){const [p,setP]=useState<any>(null);useEffect(()=>{apiFetch("/api/posts/slug/"+encodeURIComponent(slug)).then(setP).catch(()=>setP(false))},[slug]);if(p===false)return siteShell(<main className="max-w-3xl mx-auto px-5 py-20"><h1 className="text-3xl font-bold">Post not found</h1></main>);if(!p)return siteShell(<main className="max-w-3xl mx-auto px-5 py-20 text-gray-500">Loading…</main>);return siteShell(<article className="max-w-3xl mx-auto px-5 py-16"><div className="text-sm text-gray-500">{p.content_type} · {p.category_name||"Uncategorized"} · {dateFmt(p.published_at)}</div><h1 className="mt-3 text-4xl md:text-5xl font-bold">{p.title}</h1>{p.description&&<p className="mt-5 text-xl leading-8 text-gray-600">{p.description}</p>}{p.cover_secure_url&&<img src={p.cover_secure_url} className="mt-8 w-full rounded-2xl"/>}<div className="mt-10"><Md value={p.content}/></div><div className="mt-10 flex flex-wrap gap-2">{(p.tags||[]).map((x:any)=><a href={"/tags/"+x.slug} className="rounded-full bg-gray-100 px-3 py-1 text-xs" key={x.id}>{x.name}</a>)}</div></article>)}
+function PostPublic({slug}:{slug:string}){
+  const [p,setP]=useState<any>(null);
+  useEffect(()=>{apiFetch("/api/posts/slug/"+encodeURIComponent(slug)).then(setP).catch(()=>setP(false))},[slug]);
+  if(p===false)return siteShell(<main className="max-w-3xl mx-auto px-5 py-20"><h1 className="text-3xl font-bold">Post not found</h1></main>);
+  if(!p)return siteShell(<main className="max-w-3xl mx-auto px-5 py-20 text-gray-500">Loading…</main>);
+
+  const cats=p.categories||[];
+  const tags=p.tags||[];
+
+  return siteShell(
+    <main className="max-w-6xl mx-auto px-5 py-12 md:py-16">
+      <div className="max-w-4xl">
+        <div className="flex flex-wrap items-center gap-2 text-xs font-medium text-gray-500">
+          <a href="/blog" className="hover:text-gray-900">Blog</a>
+          <span>/</span>
+          <span className="uppercase tracking-wider">{p.content_type}</span>
+          {cats.slice(0,3).map((x:any)=><a key={x.id} href={"/topics/"+x.slug} className="rounded-full border border-gray-200 bg-gray-50 px-2.5 py-1 text-gray-600">{x.name}</a>)}
+        </div>
+
+        <h1 className="mt-6 text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight leading-[1.08] text-gray-950">{p.title}</h1>
+
+        {p.description&&<p className="vl-lead mt-6 max-w-3xl">{p.description}</p>}
+
+        <div className="mt-6 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-gray-500">
+          {p.published_at&&<span>{dateFmt(p.published_at)}</span>}
+          {p.reading_time&&<span>{p.reading_time} min read</span>}
+          <span>{p.content_type}</span>
+        </div>
+      </div>
+
+      {p.cover_secure_url&&<figure className="mt-10 md:mt-12 overflow-hidden rounded-2xl border border-gray-200 bg-gray-50 shadow-sm">
+        <img src={p.cover_secure_url} alt={p.title} className="w-full max-h-[560px] object-cover"/>
+      </figure>}
+
+      <div className="mt-12 md:mt-16 max-w-5xl">
+        <Md value={p.content} article/>
+      </div>
+
+      {tags.length>0&&<div className="mt-14 max-w-3xl border-t border-gray-200 pt-6">
+        <div className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-3">Tags</div>
+        <div className="flex flex-wrap gap-2">
+          {tags.map((x:any)=><a href={"/tags/"+x.slug} className="rounded-full bg-gray-100 px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-200" key={x.id}>{x.name}</a>)}
+        </div>
+      </div>}
+
+      <div className="mt-12 max-w-3xl">
+        <a href="/blog" className="inline-flex items-center rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">← Back to all posts</a>
+      </div>
+    </main>
+  );
+}
 function dateFmt(s:any){return s?new Date(s).toLocaleDateString("en-IN",{year:"numeric",month:"short",day:"numeric"}):""}
 function CollectionPublic({kind}:{kind:"tools"|"projects"|"research"}){const [rows,setRows]=useState<any[]>([]);useEffect(()=>{apiFetch(kind==="research"?"/api/content/research":"/api/content/"+kind).then(setRows).catch(()=>{})},[kind]);return siteShell(<main className="max-w-5xl mx-auto px-5 py-16"><h1 className="text-4xl font-bold">{kind[0].toUpperCase()+kind.slice(1)}</h1><div className="mt-10 grid md:grid-cols-2 gap-5">{rows.map(x=><article className="rounded-2xl border p-6" key={x.id}><div className="text-xs text-gray-500">{kind==="tools"?(x.pricing_type||"Tool"):(kind==="projects"?x.status:"Research")}</div><h2 className="mt-2 text-xl font-semibold"><a href={kind==="research"?"/research/"+x.id:"/"+kind+"/"+x.slug}>{x.name||x.title}</a></h2><p className="mt-2 text-gray-600">{x.description}</p></article>)}{!rows.length&&<div className="rounded-xl border p-10 text-center text-gray-500">Nothing published here yet.</div>}</div></main>)}
 function DetailPublic({kind,slug}:{kind:"tools"|"projects",slug:string}){const [x,setX]=useState<any>(null);useEffect(()=>{apiFetch("/api/content/"+kind).then((rows:any[])=>setX(rows.find(r=>r.slug===slug)||false)).catch(()=>setX(false))},[kind,slug]);if(!x)return siteShell(<main className="max-w-3xl mx-auto px-5 py-20 text-gray-500">{x===false?"Not found":"Loading…"}</main>);return siteShell(<main className="max-w-3xl mx-auto px-5 py-16"><div className="text-xs uppercase tracking-wider text-gray-500">{kind}</div><h1 className="mt-3 text-4xl font-bold">{x.name}</h1><p className="mt-4 text-xl text-gray-600">{x.description}</p>{x.website_url&&<p className="mt-5"><a className="underline" href={x.website_url} target="_blank" rel="noreferrer">Website</a></p>}{kind==="projects"&&(x.repository_url||x.demo_url)&&<div className="mt-5 flex gap-4 text-sm">{x.repository_url&&<a className="underline" href={x.repository_url} target="_blank" rel="noreferrer">Repository</a>}{x.demo_url&&<a className="underline" href={x.demo_url} target="_blank" rel="noreferrer">Demo</a>}</div>}<div className="mt-10"><Md value={x.content||x.long_description||""}/></div></main>)}
