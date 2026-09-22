@@ -120,11 +120,37 @@ function MultiSelectField({label,items,selected,onToggle,emptyText,createHref}:{
   </div>
 }
 
+function AdminPostPreview({post,media,cats,tags}:{post:any,media:any[],cats:any[],tags:any[]}){
+  const selectedCategoryIds=post.category_ids||[];
+  const selectedTagIds=post.tag_ids||[];
+  const cover=post.cover_image_id ? media.find((x:any)=>Number(x.id)===Number(post.cover_image_id)) : null;
+  const catNames=cats.filter((x:any)=>selectedCategoryIds.includes(Number(x.id))).map((x:any)=>x.name);
+  const tagNames=tags.filter((x:any)=>selectedTagIds.includes(Number(x.id))).map((x:any)=>x.name);
+  return <div className="rounded-2xl border border-gray-200 bg-white overflow-hidden shadow-sm">
+    <div className="border-b bg-amber-50 px-5 py-3 flex items-center justify-between gap-4">
+      <div><div className="text-xs font-semibold uppercase tracking-wider text-amber-800">Draft preview</div><div className="mt-1 text-xs text-amber-700">This preview includes unsaved editor changes.</div></div>
+      <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-800">{post.status||"draft"}</span>
+    </div>
+    <div className="px-5 py-10 md:px-10 md:py-12">
+      <div className="max-w-4xl">
+        <div className="flex flex-wrap items-center gap-2 text-xs font-medium text-gray-500">
+          <span className="uppercase tracking-wider">{post.content_type||"article"}</span>
+          {catNames.map((x:string)=><span key={x} className="rounded-full border border-gray-200 bg-gray-50 px-2.5 py-1">{x}</span>)}
+        </div>
+        <h1 className="mt-5 text-4xl md:text-5xl font-bold tracking-tight leading-[1.08] text-gray-950">{post.title||"Untitled post"}</h1>
+        {post.description&&<p className="vl-lead mt-5 max-w-3xl">{post.description}</p>}
+      </div>
+      {cover&&<figure className="mt-9 overflow-hidden rounded-2xl border border-gray-200 bg-gray-50"><img src={cover.secure_url||cover.url} alt={post.title||"Cover image"} className="w-full max-h-[520px] object-cover"/></figure>}
+      <div className="mt-12"><Md value={post.content||""} article/></div>
+      {tagNames.length>0&&<div className="mt-12 border-t border-gray-200 pt-5"><div className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-3">Tags</div><div className="flex flex-wrap gap-2">{tagNames.map((x:string)=><span key={x} className="rounded-full bg-gray-100 px-3 py-1.5 text-xs text-gray-600">{x}</span>)}</div></div>}
+    </div>
+  </div>;
+}
 function EnhancedPosts(){
   const path=location.pathname, edit=path.match(/^\/admin\/posts\/(\d+)\/edit$/), id=edit?.[1];
   const [items,setItems]=useState<any[]>([]),[cats,setCats]=useState<any[]>([]),[tags,setTags]=useState<any[]>([]),[techs,setTechs]=useState<any[]>([]),[tools,setTools]=useState<any[]>([]),[projects,setProjects]=useState<any[]>([]),[media,setMedia]=useState<any[]>([]);
   const [post,setPost]=useState<any>({title:"",slug:"",description:"",content:"",content_type:"article",status:"draft",featured:false,category_ids:[],tag_ids:[],technology_ids:[],tool_ids:[],project_ids:[],related_post_ids:[],cover_image_id:"",seo_title:"",seo_description:""});
-  const [error,setError]=useState(""),[loading,setLoading]=useState(false),[statusAction,setStatusAction]=useState<number|null>(null),[statusError,setStatusError]=useState("");
+  const [error,setError]=useState(""),[loading,setLoading]=useState(false),[statusAction,setStatusAction]=useState<number|null>(null),[statusError,setStatusError]=useState(""),[showPreview,setShowPreview]=useState(false);
   const load=()=>apiFetch("/api/posts?limit=100").then(setItems).catch((e:any)=>setError(e.message));
   useEffect(()=>{
     Promise.all([
@@ -177,11 +203,14 @@ function EnhancedPosts(){
   }
 
   return <AdminShell>
-    <div className="flex justify-between gap-4 mb-6">
-      <div><h1 className="text-3xl font-semibold">{id?"Edit post":"New post"}</h1><p className="mt-2 text-gray-500">Markdown editor with structured taxonomy, media, and relationships.</p></div>
-      <a href="/admin/posts" className="text-sm text-gray-500">Back</a>
+    <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+      <div><h1 className="text-3xl font-semibold">{id?"Edit post":"New post"}</h1><p className="mt-2 text-gray-500">{showPreview?"Review the rendered article before saving or publishing.":"Markdown editor with structured taxonomy, media, and relationships."}</p></div>
+      <div className="flex items-center gap-3">
+        <button type="button" onClick={()=>setShowPreview(v=>!v)} className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">{showPreview?"Edit":"Preview"}</button>
+        <a href="/admin/posts" className="text-sm text-gray-500">Back</a>
+      </div>
     </div>
-    <form onSubmit={save} className="grid xl:grid-cols-[minmax(0,1fr)_380px] gap-6">
+    {showPreview ? <AdminPostPreview post={post} media={media} cats={cats} tags={tags}/> : <form onSubmit={save} className="grid xl:grid-cols-[minmax(0,1fr)_380px] gap-6">
       <section className="rounded-xl border bg-white p-6 space-y-4">
         <input value={post.title} onChange={e=>setPost({...post,title:e.target.value})} placeholder="Title" required className="w-full text-3xl font-semibold border-b pb-3 outline-none"/>
         <input value={post.slug||""} onChange={e=>setPost({...post,slug:e.target.value})} placeholder="Slug" className="w-full rounded-lg border px-3 py-2"/>
@@ -211,7 +240,7 @@ function EnhancedPosts(){
         {error&&<p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
         <button disabled={loading} className="w-full rounded-lg bg-gray-900 py-2.5 text-sm text-white disabled:opacity-50">{loading?"Saving…":"Save post"}</button>
       </aside>
-    </form>
+    </form>}
   </AdminShell>
 }
 function apiFetch(path:string,opts:any={}):Promise<any>{return fetch(path,{credentials:"include",...opts}).then(async r=>{const d=await r.json().catch(()=>({}));if(r.status===401){location.href="/admin/login";throw Error("Unauthenticated")}if(!r.ok)throw Error(d.error?.message||"Request failed");return d.data})}
@@ -277,7 +306,7 @@ const ARTICLE_STYLES = `
 .vl-article th{background:#f8fafc;color:#0f172a;font-size:.9rem;font-weight:700}
 .vl-article tr:last-child td{border-bottom:0}
 .vl-article img{display:block;max-width:100%;height:auto;margin:1.5rem auto;border-radius:14px}
-.vl-toc{position:sticky;top:6.5rem}
+.vl-toc{position:sticky;top:4.75rem;align-self:start}
 .vl-toc a{display:block;padding:.35rem 0;color:#64748b;text-decoration:none;font-size:.82rem;line-height:1.4}
 .vl-toc a:hover{color:#0f172a}
 .vl-article .vl-lead{font-size:1.18rem;line-height:1.8;color:#475569}
@@ -401,12 +430,14 @@ function renderMarkdown(value:string){
 function Md({value,article=false}:{value:string,article?:boolean}){
   const source=article ? String(value||"").replace(/^#\s+.+(?:\r?\n|$)/,"") : value;
   const rendered=renderMarkdown(source);
-  return <div className={article ? "grid lg:grid-cols-[minmax(0,1fr)_220px] gap-12 items-start" : ""}>
-    <div className="vl-article" dangerouslySetInnerHTML={{__html:rendered.html}}/>
-    {article && rendered.headings.length>1 && <aside className="hidden lg:block vl-toc rounded-xl border border-gray-200 bg-gray-50/70 p-4">
+  const toc=article && rendered.headings.length>1 ? <aside className="hidden lg:block vl-toc rounded-xl border border-gray-200 bg-gray-50/70 p-4">
       <div className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-2">On this page</div>
       <nav>{rendered.headings.filter(x=>x.level<=2).map(x=><a key={x.id} href={"#"+x.id} className={x.level===3?"pl-3":""}>{x.label}</a>)}</nav>
-    </aside>}
+    </aside> : null;
+  if(!article) return <div className="vl-article" dangerouslySetInnerHTML={{__html:rendered.html}}/>;
+  return <div className="grid lg:grid-cols-[220px_minmax(0,1fr)] gap-8 lg:gap-12 items-start">
+    {toc}
+    <div className="vl-article" dangerouslySetInnerHTML={{__html:rendered.html}}/>
   </div>;
 }
 function HomePublic(){const [posts,setPosts]=useState<any[]>([]);useEffect(()=>{apiFetch("/api/posts?status=published&limit=4").then(setPosts).catch(()=>{})},[]);return siteShell(<><main className="max-w-6xl mx-auto px-5 py-24"><p className="text-sm font-medium text-gray-500">Engineering, Research &amp; Building.</p><h1 className="mt-4 text-5xl md:text-6xl font-bold tracking-tight">Vijevira Labs</h1><p className="mt-6 max-w-2xl text-xl leading-8 text-gray-600">Practical engineering notes, research, production lessons, developer tools, and projects built around useful, real-world systems.</p><div className="mt-10 flex gap-3"><a href="/blog" className="rounded-lg bg-gray-900 px-5 py-3 text-white">Read the blog</a><a href="/projects" className="rounded-lg border px-5 py-3">Projects</a></div></main>{posts.length>0&&<section className="max-w-6xl mx-auto px-5 pb-16"><h2 className="text-2xl font-semibold">Latest writing</h2><div className="mt-5 grid md:grid-cols-2 gap-5">{posts.map(p=><a key={p.id} href={"/blog/"+p.slug} className="rounded-2xl border p-6"><div className="text-xs text-gray-500">{p.content_type} · {p.category_name||"Uncategorized"}</div><div className="mt-2 text-xl font-semibold">{p.title}</div><p className="mt-2 text-gray-600">{p.description}</p></a>)}</div></section>}</>)}
