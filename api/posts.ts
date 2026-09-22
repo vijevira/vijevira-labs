@@ -14,7 +14,7 @@ function slugify(value: string) {
 }
 
 function readingTime(content: string) {
-  const words = content.trim().split(/\\s+/).filter(Boolean).length;
+  const words = content.trim().split(/\s+/).filter(Boolean).length;
   return Math.max(1, Math.ceil(words / 220));
 }
 
@@ -194,16 +194,18 @@ posts.delete("/:id", requireAuth, async (c) => {
 posts.post("/:id/publish", requireAuth, async (c) => {
   await initDatabase();
   const id = Number(c.req.param("id"));
-  const result = await sqlite.execute("UPDATE posts SET status='published', published_at=COALESCE(published_at,CURRENT_TIMESTAMP), updated_at=CURRENT_TIMESTAMP WHERE id=?", [id]);
-  if (Number((result as any).changes || 0) === 0) return error(c, 404, "POST_NOT_FOUND", "Post not found");
+  const existing = await sqlite.execute("SELECT id FROM posts WHERE id=? LIMIT 1", [id]);
+  if (!existing.rows.length) return error(c, 404, "POST_NOT_FOUND", "Post not found");
+  await sqlite.execute("UPDATE posts SET status='published', published_at=COALESCE(published_at,CURRENT_TIMESTAMP), updated_at=CURRENT_TIMESTAMP WHERE id=?", [id]);
   return c.json({ data: await getPost(id) });
 });
 
 posts.post("/:id/unpublish", requireAuth, async (c) => {
   await initDatabase();
   const id = Number(c.req.param("id"));
-  const result = await sqlite.execute("UPDATE posts SET status='draft', updated_at=CURRENT_TIMESTAMP WHERE id=?", [id]);
-  if (Number((result as any).changes || 0) === 0) return error(c, 404, "POST_NOT_FOUND", "Post not found");
+  const existing = await sqlite.execute("SELECT id FROM posts WHERE id=? LIMIT 1", [id]);
+  if (!existing.rows.length) return error(c, 404, "POST_NOT_FOUND", "Post not found");
+  await sqlite.execute("UPDATE posts SET status='draft', published_at=NULL, updated_at=CURRENT_TIMESTAMP WHERE id=?", [id]);
   return c.json({ data: await getPost(id) });
 });
 
