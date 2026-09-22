@@ -124,8 +124,8 @@ function EnhancedPosts(){
   const path=location.pathname, edit=path.match(/^\/admin\/posts\/(\d+)\/edit$/), id=edit?.[1];
   const [items,setItems]=useState<any[]>([]),[cats,setCats]=useState<any[]>([]),[tags,setTags]=useState<any[]>([]),[techs,setTechs]=useState<any[]>([]),[tools,setTools]=useState<any[]>([]),[projects,setProjects]=useState<any[]>([]),[media,setMedia]=useState<any[]>([]);
   const [post,setPost]=useState<any>({title:"",slug:"",description:"",content:"",content_type:"article",status:"draft",featured:false,category_ids:[],tag_ids:[],technology_ids:[],tool_ids:[],project_ids:[],related_post_ids:[],cover_image_id:"",seo_title:"",seo_description:""});
-  const [error,setError]=useState(""),[loading,setLoading]=useState(false);
-  const load=()=>apiFetch("/api/posts?limit=100").then(setItems).catch(()=>{});
+  const [error,setError]=useState(""),[loading,setLoading]=useState(false),[statusAction,setStatusAction]=useState<number|null>(null),[statusError,setStatusError]=useState("");
+  const load=()=>apiFetch("/api/posts?limit=100").then(setItems).catch((e:any)=>setError(e.message));
   useEffect(()=>{
     Promise.all([
       apiFetch("/api/taxonomy/categories"),
@@ -151,6 +151,19 @@ function EnhancedPosts(){
   },[id]);
 
   const toggle=(key:string,n:number)=>setPost((p:any)=>({...p,[key]:(p[key]||[]).includes(n)?p[key].filter((x:number)=>x!==n):[...(p[key]||[]),n]}));
+  const changeStatus=async(p:any)=>{
+    setStatusError("");
+    setStatusAction(Number(p.id));
+    try{
+      const next=p.status==="published"?"unpublish":"publish";
+      const updated=await apiFetch("/api/posts/"+p.id+"/"+next,{method:"POST"});
+      setItems(xs=>xs.map(x=>Number(x.id)===Number(p.id)?{...x,status:updated.status,published_at:updated.published_at}:x));
+    }catch(e:any){
+      setStatusError(e.message||"Unable to change post status.");
+    }finally{
+      setStatusAction(null);
+    }
+  };
   const save=async(e:any)=>{
     e.preventDefault();setError("");setLoading(true);
     try{
@@ -160,7 +173,7 @@ function EnhancedPosts(){
   };
 
   if(path==="/admin/posts"||path==="/admin/posts/"){
-    return <AdminShell><div className="flex items-center justify-between gap-4"><div><h1 className="text-3xl font-semibold">Posts</h1><p className="mt-2 text-gray-500">Articles, tutorials, research, guides and notes.</p></div><a href="/admin/posts/new" className="rounded-lg bg-gray-900 px-4 py-2 text-sm text-white">New post</a></div><div className="mt-8 rounded-xl border bg-white divide-y">{items.length?items.map(p=><div className="p-5 flex items-center justify-between gap-4" key={p.id}><div><div className="font-medium">{p.title}</div><div className="text-xs text-gray-500 mt-1">{p.status} · {p.content_type} · {p.category_name||"Uncategorized"}</div></div><div className="flex gap-3 text-sm"><button onClick={async()=>{await apiFetch("/api/posts/"+p.id+"/"+(p.status==="published"?"unpublish":"publish"),{method:"POST"});load()}} className="text-gray-600">{p.status==="published"?"Unpublish":"Publish"}</button><a href={"/admin/posts/"+p.id+"/edit"} className="text-gray-600">Edit</a><button onClick={async()=>{if(confirm("Delete this post?")){await apiFetch("/api/posts/"+p.id,{method:"DELETE"});load()}}} className="text-red-600">Delete</button></div></div>):<div className="p-10 text-center text-gray-500">No posts yet.</div>}</div></AdminShell>
+    return <AdminShell><div className="flex items-center justify-between gap-4"><div><h1 className="text-3xl font-semibold">Posts</h1><p className="mt-2 text-gray-500">Articles, tutorials, research, guides and notes.</p></div><a href="/admin/posts/new" className="rounded-lg bg-gray-900 px-4 py-2 text-sm text-white">New post</a></div>{statusError&&<div className="mt-5 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{statusError}</div>}<div className="mt-8 rounded-xl border bg-white divide-y">{items.length?items.map(p=><div className="p-5 flex items-center justify-between gap-4" key={p.id}><div><div className="font-medium">{p.title}</div><div className="text-xs text-gray-500 mt-1">{p.status} · {p.content_type} · {p.category_name||"Uncategorized"}</div></div><div className="flex items-center gap-3 text-sm"><button type="button" disabled={statusAction===Number(p.id)} onClick={()=>changeStatus(p)} className="text-gray-600 disabled:opacity-50">{statusAction===Number(p.id)?"Saving…":p.status==="published"?"Unpublish":"Publish"}</button><a href={"/admin/posts/"+p.id+"/edit"} className="text-gray-600">Edit</a><button type="button" onClick={async()=>{if(confirm("Delete this post?")){await apiFetch("/api/posts/"+p.id,{method:"DELETE"});load()}}} className="text-red-600">Delete</button></div></div>):<div className="p-10 text-center text-gray-500">No posts yet.</div>}</div></AdminShell>
   }
 
   return <AdminShell>
