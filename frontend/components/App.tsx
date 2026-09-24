@@ -131,6 +131,7 @@ function Dashboard(){
 
 const TYPES=["article","tutorial","research","guide","comparison","project_log","note"];
 const STATES=["draft","review","scheduled","published","archived"];
+const EMPTY_POST={title:"",slug:"",description:"",content:"",content_type:"article",status:"draft",featured:false,category_ids:[],tag_ids:[],technology_ids:[],tool_ids:[],project_ids:[],related_post_ids:[],cover_image_id:"",seo_title:"",seo_description:""};
 
 function MultiSelectField({label,items,selected,onToggle,emptyText,createHref}:{label:string,items:any[],selected:number[],onToggle:(id:number)=>void,emptyText:string,createHref:string}){
   return <div>
@@ -178,8 +179,37 @@ function AdminPostPreview({post,media,cats,tags}:{post:any,media:any[],cats:any[
 function EnhancedPosts(){
   const path=location.pathname, edit=path.match(/^\/admin\/posts\/(\d+)\/edit$/), id=edit?.[1];
   const [items,setItems]=useState<any[]>([]),[cats,setCats]=useState<any[]>([]),[tags,setTags]=useState<any[]>([]),[techs,setTechs]=useState<any[]>([]),[tools,setTools]=useState<any[]>([]),[projects,setProjects]=useState<any[]>([]),[media,setMedia]=useState<any[]>([]);
-  const [post,setPost]=useState<any>({title:"",slug:"",description:"",content:"",content_type:"article",status:"draft",featured:false,category_ids:[],tag_ids:[],technology_ids:[],tool_ids:[],project_ids:[],related_post_ids:[],cover_image_id:"",seo_title:"",seo_description:""});
+  const [post,setPost]=useState<any>({...EMPTY_POST});
   const [error,setError]=useState(""),[loading,setLoading]=useState(false),[statusAction,setStatusAction]=useState<number|null>(null),[statusError,setStatusError]=useState(""),[showPreview,setShowPreview]=useState(false),[listQuery,setListQuery]=useState(""),[listStatus,setListStatus]=useState("all");
+  const [initialSnapshot,setInitialSnapshot]=useState(JSON.stringify(EMPTY_POST));
+  const [saveState,setSaveState]=useState<"saved"|"dirty"|"saving"|"error">("saved");
+  const [lastSavedAt,setLastSavedAt]=useState<number|null>(null);
+  const [mediaQuery,setMediaQuery]=useState("");
+  const snapshot=JSON.stringify(post);
+  const dirty=snapshot!==initialSnapshot;
+  useEffect(()=>{setSaveState(dirty?"dirty":"saved")},[dirty]);
+  useEffect(()=>{
+    const warn=(e:BeforeUnloadEvent)=>{if(dirty){e.preventDefault();e.returnValue=""}};
+    window.addEventListener("beforeunload",warn);
+    return()=>window.removeEventListener("beforeunload",warn);
+  },[dirty]);
+  useEffect(()=>{
+    if(!id || !dirty || post.status==="published" || post.status==="archived") return;
+    const timer=setTimeout(async()=>{
+      setSaveState("saving");
+      try{
+        await apiFetch("/api/posts/"+id,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(post)});
+        setInitialSnapshot(JSON.stringify(post));
+        setSaveState("saved");
+        setLastSavedAt(Date.now());
+      }catch(e:any){
+        setSaveState("error");
+        setError(e.message||"Autosave failed");
+      }
+    },2200);
+    return()=>clearTimeout(timer);
+  },[id,dirty,post.title,post.slug,post.description,post.content,post.content_type,post.status,post.featured,post.cover_image_id,post.seo_title,post.seo_description,JSON.stringify(post.category_ids||[]),JSON.stringify(post.tag_ids||[]),JSON.stringify(post.technology_ids||[]),JSON.stringify(post.tool_ids||[]),JSON.stringify(post.project_ids||[]),JSON.stringify(post.related_post_ids||[])]);
+
   const load=()=>apiFetch("/api/posts?limit=100").then(setItems).catch((e:any)=>setError(e.message));
   useEffect(()=>{
     Promise.all([
@@ -192,16 +222,22 @@ function EnhancedPosts(){
       apiFetch("/api/posts?limit=100").catch(()=>[])
     ]).then(([c,t,te,to,pr,m,p])=>{setCats(c);setTags(t);setTechs(te);setTools(to);setProjects(pr);setMedia(m);setItems(p)})
       .catch((e:any)=>setError(e.message));
-    if(!id)return;
+    if(!id){setInitialSnapshot(JSON.stringify(EMPTY_POST));return}
     apiFetch("/api/posts/"+id)
-      .then((p:any)=>setPost({...p,
-        category_ids:(p.categories||[]).map((x:any)=>Number(x.id)),
-        tag_ids:(p.tags||[]).map((x:any)=>Number(x.id)),
-        technology_ids:(p.technologies||[]).map((x:any)=>Number(x.id)),
-        tool_ids:(p.tools||[]).map((x:any)=>Number(x.id)),
-        project_ids:(p.projects||[]).map((x:any)=>Number(x.id)),
-        related_post_ids:(p.related_posts||[]).map((x:any)=>Number(x.id))
-      }))
+      .then((p:any)=>{
+        const next={...p,
+          category_ids:(p.categories||[]).map((x:any)=>Number(x.id)),
+          tag_ids:(p.tags||[]).map((x:any)=>Number(x.id)),
+          technology_ids:(p.technologies||[]).map((x:any)=>Number(x.id)),
+          tool_ids:(p.tools||[]).map((x:any)=>Number(x.id)),
+          project_ids:(p.projects||[]).map((x:any)=>Number(x.id)),
+          related_post_ids:(p.related_posts||[]).map((x:any)=>Number(x.id))
+        };
+        setPost(next);
+        setInitialSnapshot(JSON.stringify(next));
+        setSaveState("saved");
+        setLastSavedAt(null);
+      })
       .catch((e:any)=>setError(e.message))
   },[id]);
 
@@ -219,14 +255,29 @@ function EnhancedPosts(){
       setStatusAction(null);
     }
   };
-  const save=async(e:any)=>{
-    e.preventDefault();setError("");setLoading(true);
+  const persist=async(redirect=true)=>{
+    setError("");setLoading(true);setSaveState("saving");
     try{
-      await apiFetch(id?"/api/posts/"+id:"/api/posts",{method:id?"PUT":"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(post)});
-      location.href="/admin/posts";
-    }catch(e:any){setError(e.message);setLoading(false)}
+      const saved=await apiFetch(id?"/api/posts/"+id:"/api/posts",{method:id?"PUT":"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(post)});
+      const next=id?{...post,...saved}:{...post,...saved};
+      if(id){
+        setPost(next);
+        setInitialSnapshot(JSON.stringify(next));
+        setLastSavedAt(Date.now());
+      }
+      setSaveState("saved");
+      if(redirect) location.href="/admin/posts";
+      return saved;
+    }catch(e:any){
+      setError(e.message||"Save failed");
+      setSaveState("error");
+      throw e;
+    }finally{setLoading(false)}
   };
+  const save=async(e:any)=>{e.preventDefault();try{await persist(true)}catch{}};
+  const goBack=()=>{if(dirty){if(confirm("You have unsaved changes. Leave without saving?")) location.href="/admin/posts"}else location.href="/admin/posts"};
   const visibleItems=items.filter(p=>(listStatus==="all"||p.status===listStatus)&&(!listQuery.trim()||String(p.title||"").toLowerCase().includes(listQuery.trim().toLowerCase())));
+  const filteredMedia=media.filter((x:any)=>!mediaQuery.trim()||String(x.filename||x.public_id||"").toLowerCase().includes(mediaQuery.trim().toLowerCase()));
 
   if(path==="/admin/posts"||path==="/admin/posts/"){
     return <AdminShell>
@@ -266,10 +317,11 @@ function EnhancedPosts(){
     <div className="sticky top-0 z-20 -mx-4 border-b border-slate-200 bg-slate-50/95 px-4 py-4 backdrop-blur md:-mx-8 md:px-8">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div><div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-teal-700">{id?"Editing":"Drafting"}</div><h1 className="mt-1 text-2xl font-semibold tracking-tight text-slate-950">{id?"Edit post":"New post"}</h1><p className="mt-1 text-xs text-slate-500">{showPreview?"Rendered preview of the current editor state.":"Write, structure, optimize, then publish."}</p></div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
+          <div className="hidden sm:flex items-center gap-2 text-xs text-slate-500" aria-live="polite"><span className={`h-2 w-2 rounded-full ${saveState==="saved"?"bg-emerald-500":saveState==="saving"?"bg-amber-500 animate-pulse":saveState==="error"?"bg-red-500":"bg-slate-400"}`}></span><span>{saveState==="saved"?(lastSavedAt?"Saved just now":"Saved"):saveState==="saving"?"Saving…":saveState==="error"?"Save error":"Unsaved changes"}</span></div>
           <button type="button" onClick={()=>setShowPreview(v=>!v)} className="rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 hover:border-slate-300">{showPreview?"Back to editor":"Preview"}</button>
           {!showPreview&&<button type="submit" form="post-editor" disabled={loading} className="rounded-xl bg-slate-950 px-4 py-2 text-sm font-medium text-white disabled:opacity-50">{loading?"Saving…":"Save post"}</button>}
-          <a href="/admin/posts" className="hidden sm:inline-flex rounded-xl px-3 py-2 text-sm text-slate-500 hover:text-slate-950">Back</a>
+          <button type="button" onClick={goBack} className="hidden sm:inline-flex rounded-xl px-3 py-2 text-sm text-slate-500 hover:text-slate-950">Back</button>
         </div>
       </div>
     </div>
@@ -297,19 +349,45 @@ function EnhancedPosts(){
         <MultiSelectField label="Related posts" items={items.filter((x:any)=>Number(x.id)!==Number(id))} selected={post.related_post_ids||[]} onToggle={n=>toggle("related_post_ids",n)} emptyText="No other posts available yet." createHref="/admin/posts/new"/>
         </div>
 
-        <div className="border-b border-slate-200 pb-4"><div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400 mb-4">Media</div>
-          <label className="block text-sm font-medium">Cover image<select value={post.cover_image_id||""} onChange={e=>setPost({...post,cover_image_id:e.target.value?Number(e.target.value):null})} className="mt-2 w-full rounded-lg border px-3 py-2"><option value="">No cover</option>{media.map(x=><option key={x.id} value={x.id}>{x.filename}</option>)}</select></label>
-          {post.cover_image_id&&media.find(x=>Number(x.id)===Number(post.cover_image_id))&&<img src={media.find(x=>Number(x.id)===Number(post.cover_image_id)).secure_url||media.find(x=>Number(x.id)===Number(post.cover_image_id)).url} className="mt-3 aspect-video w-full rounded-lg object-cover" />}
-          <a href="/admin/media" className="mt-2 inline-block text-xs text-gray-500 underline">Manage media</a>
+        <div className="border-b border-slate-200 pb-4"><div className="flex items-center justify-between gap-3 mb-4"><div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">Media</div><a href="/admin/media" className="text-xs text-gray-500 underline underline-offset-2">Manage</a></div>
+          <label className="block text-sm font-medium text-slate-700">Cover image
+            <input type="search" value={mediaQuery} onChange={e=>setMediaQuery(e.target.value)} placeholder="Find an image…" aria-label="Search media" className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm"/>
+          </label>
+          <div className="mt-3 grid grid-cols-3 gap-2 max-h-64 overflow-auto rounded-xl border border-slate-200 bg-slate-50 p-2">
+            <button type="button" onClick={()=>setPost({...post,cover_image_id:null})} className={`overflow-hidden rounded-lg border bg-white p-1 text-left ${!post.cover_image_id?"border-slate-950 ring-2 ring-slate-950/10":"border-slate-200"}`}><div className="aspect-video grid place-items-center bg-slate-50 text-[10px] text-slate-400">No cover</div><div className="px-1 py-1 text-[10px] text-slate-500">None</div></button>
+            {filteredMedia.map(x=>{const src=x.secure_url||x.url;const selected=Number(post.cover_image_id)===Number(x.id);return <button type="button" key={x.id} onClick={()=>setPost({...post,cover_image_id:Number(x.id)})} className={`overflow-hidden rounded-lg border bg-white p-1 text-left ${selected?"border-teal-600 ring-2 ring-teal-600/15":"border-slate-200 hover:border-slate-300"}`}><img src={src} alt="" className="aspect-video w-full rounded-md object-cover"/><div className="truncate px-1 py-1 text-[10px] text-slate-500">{x.filename||x.public_id||("Image "+x.id)}</div></button>})}
+          </div>
+          {post.cover_image_id&&<p className="mt-2 text-xs text-slate-500">Selected: {media.find(x=>Number(x.id)===Number(post.cover_image_id))?.filename||"image"}</p>}
         </div>
         <div className="space-y-4">
           <div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">Publishing options</div>
           <label className="flex items-center gap-2 text-sm text-slate-700"><input type="checkbox" checked={!!post.featured} onChange={e=>setPost({...post,featured:e.target.checked})}/> Featured</label>
         </div>
         <div className="space-y-4">
-          <div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">SEO</div>
-          <input value={post.seo_title||""} onChange={e=>setPost({...post,seo_title:e.target.value})} placeholder="SEO title" className="w-full rounded-xl border border-slate-200 px-3 py-2.5"/>
-          <textarea value={post.seo_description||""} onChange={e=>setPost({...post,seo_description:e.target.value})} placeholder="SEO description" rows={3} className="w-full rounded-xl border border-slate-200 px-3 py-2.5"/>
+          <div><div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">SEO</div><p className="mt-1 text-xs leading-5 text-slate-500">Control search snippets and the page title without changing the article headline.</p></div>
+          <label className="block text-sm font-medium text-slate-700">SEO title
+            <input value={post.seo_title||""} onChange={e=>setPost({...post,seo_title:e.target.value})} placeholder="Defaults to post title" maxLength={70} className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2.5"/>
+            <div className="mt-1 text-right text-[10px] text-slate-400">{String(post.seo_title||"").length}/70</div>
+          </label>
+          <label className="block text-sm font-medium text-slate-700">SEO description
+            <textarea value={post.seo_description||""} onChange={e=>setPost({...post,seo_description:e.target.value})} placeholder="Defaults to the post description" rows={3} maxLength={170} className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2.5"/>
+            <div className="mt-1 text-right text-[10px] text-slate-400">{String(post.seo_description||"").length}/170</div>
+          </label>
+          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">Search preview</div>
+            <div className="mt-3 rounded-xl border border-slate-100 bg-slate-50 p-3">
+              <div className="truncate text-sm font-medium text-blue-700">{post.seo_title||post.title||"Your article title"}</div>
+              <div className="mt-1 truncate text-[11px] text-emerald-700">{location.origin}/blog/{post.slug||"your-post-slug"}</div>
+              <div className="mt-1 text-xs leading-5 text-slate-600">{post.seo_description||post.description||"Your search description will appear here."}</div>
+            </div>
+          </div>
+          <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
+            <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">Social preview</div>
+            <div className="mt-3 overflow-hidden rounded-xl border border-slate-200 bg-white">
+              {post.cover_image_id&&media.find(x=>Number(x.id)===Number(post.cover_image_id))?<img src={media.find(x=>Number(x.id)===Number(post.cover_image_id)).secure_url||media.find(x=>Number(x.id)===Number(post.cover_image_id)).url} alt="" className="aspect-[1.91/1] w-full object-cover"/>:<div className="aspect-[1.91/1] grid place-items-center bg-slate-100 text-xs text-slate-400">No social image selected</div>}
+              <div className="p-3"><div className="text-xs text-slate-400">{location.hostname}</div><div className="mt-1 text-sm font-semibold text-slate-900 line-clamp-2">{post.seo_title||post.title||"Article title"}</div><div className="mt-1 text-xs text-slate-500 line-clamp-2">{post.seo_description||post.description||"Article description"}</div></div>
+            </div>
+          </div>
         </div>
         {error&&<p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
         <button type="submit" disabled={loading} className="w-full rounded-xl bg-slate-950 py-3 text-sm font-medium text-white disabled:opacity-50">{loading?"Saving…":"Save post"}</button>
