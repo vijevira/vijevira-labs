@@ -1,5 +1,5 @@
 /** @jsxImportSource https://esm.sh/react@18.2.0 */
-import { useEffect, useState } from "https://esm.sh/react@18.2.0";
+import { useEffect, useRef, useState } from "https://esm.sh/react@18.2.0";
 
 const nav = [
   ["/admin", "Dashboard"], ["/admin/posts", "Posts"], ["/admin/research", "Research"],
@@ -403,6 +403,7 @@ const ARTICLE_STYLES = `
 .vl-code-label{display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:.55rem .85rem;background:#111827;border-bottom:1px solid #1e293b;color:#94a3b8;font:600 .72rem/1 ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;text-transform:uppercase;letter-spacing:.08em}
 .vl-code-copy{border:1px solid #334155;border-radius:7px;padding:.3rem .55rem;background:#1e293b;color:#cbd5e1;font:600 .68rem/1 ui-sans-serif,system-ui,sans-serif;text-transform:none;letter-spacing:0;cursor:pointer}
 .vl-code-copy:hover{background:#334155;color:#fff}
+.vl-tok-comment{color:#64748b;font-style:italic}.vl-tok-string{color:#a7f3d0}.vl-tok-keyword{color:#c4b5fd}.vl-tok-number{color:#fcd34d}.vl-tok-function{color:#67e8f9}.vl-tok-property{color:#93c5fd}.vl-tok-operator{color:#fda4af}
 .vl-article pre{margin:0;overflow:auto;padding:1.1rem 1.2rem;color:#e2e8f0;font:500 .9rem/1.75 ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace}
 .vl-table-wrap{margin:1.5rem 0;overflow-x:auto;border:1px solid #e2e8f0;border-radius:14px}
 .vl-article table{width:100%;border-collapse:collapse;min-width:520px;background:#fff}
@@ -414,6 +415,10 @@ const ARTICLE_STYLES = `
 .vl-toc a{display:block;padding:.35rem 0;color:#64748b;text-decoration:none;font-size:.82rem;line-height:1.4}
 .vl-toc a:hover{color:#0f172a}
 .vl-article .vl-lead{font-size:1.18rem;line-height:1.8;color:#475569}
+.vl-progress{position:fixed;top:68px;left:0;z-index:35;height:2px;background:#0f766e;transform-origin:left center}
+@media(max-width:767px){.vl-progress{top:56px}}
+.vl-action{display:inline-flex;align-items:center;gap:.45rem;border:1px solid #e2e8f0;border-radius:10px;padding:.5rem .7rem;background:#fff;color:#475569;font:500 .78rem/1 ui-sans-serif,system-ui,sans-serif}
+.vl-action:hover{border-color:#cbd5e1;color:#0f172a}
 `;
 function navIsActive(path:string,href:string){
   if(href==="/blog") return path==="/blog" || path.startsWith("/blog/") || path.startsWith("/topics/") || path.startsWith("/tags/");
@@ -477,11 +482,16 @@ function PostCard({post,featured=false}:{post:any,featured?:boolean}){
 function CollectionCard({item,kind}:{item:any,kind:"tools"|"projects"|"research"}){
   const title=item.name||item.title;
   const href=kind==="research"?"/research/"+item.id:"/"+kind+"/"+item.slug;
-  return <a href={href} className="group block rounded-2xl border border-slate-200 bg-white p-6 transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-lg hover:shadow-slate-900/5">
-    <Meta><span>{kind==="tools"?(item.pricing_type||"Tool"):(kind==="projects"?(item.status||"Project"):"Research")}</span></Meta>
-    <h3 className="mt-3 text-xl font-semibold tracking-tight text-slate-950 group-hover:text-teal-800">{title}</h3>
-    {item.description&&<p className="mt-2 text-sm leading-6 text-slate-600">{item.description}</p>}
-    <span className="mt-5 inline-block text-sm font-medium text-slate-500">Explore →</span>
+  return <a href={href} className="group block overflow-hidden rounded-2xl border border-slate-200 bg-white transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-lg hover:shadow-slate-900/5">
+    {kind==="projects"&&item.cover_secure_url&&<div className="aspect-[16/8] overflow-hidden bg-slate-100"><img src={item.cover_secure_url} alt="" loading="lazy" className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.02]"/></div>}
+    <div className="p-6">
+      {kind==="tools"&&item.logo_url&&<img src={item.logo_url} alt="" loading="lazy" className="mb-5 h-11 w-11 rounded-xl border border-slate-200 bg-white object-contain p-1.5"/>}
+      <Meta><span>{kind==="tools"?(item.pricing_type||"Tool"):(kind==="projects"?(item.status||"Project"):"Research")}</span>{kind==="tools"&&item.category&&<><span>·</span><span>{item.category}</span></>}</Meta>
+      <h3 className="mt-3 text-xl font-semibold tracking-tight text-slate-950 group-hover:text-teal-800">{title}</h3>
+      {item.description&&<p className="mt-2 text-sm leading-6 text-slate-600">{item.description}</p>}
+      {kind==="tools"&&item.free_tier&&<div className="mt-4 rounded-xl bg-emerald-50 px-3 py-2 text-xs leading-5 text-emerald-800"><span className="font-semibold">Free tier:</span> {item.free_tier}</div>}
+      <span className="mt-5 inline-block text-sm font-medium text-slate-500">Explore →</span>
+    </div>
   </a>;
 }
 function EmptyState({title,description}:{title:string,description?:string}){return <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50/70 px-6 py-12 text-center"><div className="text-sm font-medium text-slate-700">{title}</div>{description&&<p className="mt-2 text-sm text-slate-500">{description}</p>}</div>}
@@ -542,6 +552,27 @@ function inlineMd(value:string){
   return s;
 }
 
+function highlightCode(value:string,lang:string){
+  const language=String(lang||"text").toLowerCase();
+  let s=String(value||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  const tokens:string[]=[];
+  const protect=(cls:string,raw:string)=>{const i=tokens.push(`<span class="vl-tok vl-tok-${cls}">${raw}</span>`)-1;return `__VL_TOKEN_${i}__`;};
+  const commentPatterns=language==="python"||language==="py"?[/#[^\n]*/g]:language==="sql"?[/--[^\n]*/g,/\/\*[\s\S]*?\*\//g]:language==="css"||language==="scss"?[/\/\*[\s\S]*?\*\//g]:language==="html"||language==="xml"?[/&lt;!--[\s\S]*?--&gt;/g]:[/\/\/[^\n]*/g,/\/\*[\s\S]*?\*\//g];
+  for(const pattern of commentPatterns)s=s.replace(pattern,(m)=>protect("comment",m));
+  s=s.replace(/"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|\`(?:\\.|[^\`\\])*\`/g,m=>protect("string",m));
+  let keywordRe="";
+  if(language==="js"||language==="javascript"||language==="jsx"||language==="ts"||language==="typescript"||language==="tsx") keywordRe="as|async|await|break|case|catch|class|const|continue|debugger|default|delete|do|else|export|extends|finally|for|from|function|get|if|implements|import|in|instanceof|interface|let|new|of|private|protected|public|return|set|static|super|switch|this|throw|try|type|typeof|undefined|var|void|while|with|yield";
+  else if(language==="python"||language==="py") keywordRe="and|as|assert|async|await|break|case|class|continue|def|del|elif|else|except|False|finally|for|from|global|if|import|in|is|lambda|match|None|nonlocal|not|or|pass|raise|return|True|try|while|with|yield";
+  else if(language==="sql") keywordRe="SELECT|FROM|WHERE|INSERT|INTO|VALUES|UPDATE|SET|DELETE|CREATE|TABLE|ALTER|DROP|JOIN|LEFT|RIGHT|INNER|OUTER|ON|AS|AND|OR|NOT|NULL|ORDER|BY|GROUP|LIMIT|OFFSET|UNION|DISTINCT";
+  else if(language==="bash"||language==="sh"||language==="shell") keywordRe="if|then|else|elif|fi|for|in|do|done|case|esac|function|select|while|until";
+  else if(language==="json") keywordRe="true|false|null";
+  if(keywordRe)s=s.replace(new RegExp(`\\b(${keywordRe})\\b`,language==="sql"?"g":"g"),m=>protect("keyword",m));
+  s=s.replace(/\b\d+(?:\.\d+)?\b/g,m=>protect("number",m));
+  s=s.replace(/\b[A-Za-z_$][\w$]*(?=\s*\()/g,m=>protect("function",m));
+  if(language==="json")s=s.replace(/(__VL_TOKEN_\d+__\s*:)/g,m=>protect("property",m));
+  s=s.replace(/(===|!==|==|!=|=>|<=|>=|&&|\|\||\+\+|--|\+=|-=|\*=|\/=|[=+*\-/%<>!])/g,m=>protect("operator",m));
+  return s.replace(/__VL_TOKEN_(\d+)__/g,(_,i)=>tokens[Number(i)]);
+}
 function parseTableRow(line:string){
   const cleaned=line.trim().replace(/^\|/,"").replace(/\|$/,"");
   return cleaned.split("|").map(x=>x.trim());
@@ -551,7 +582,7 @@ function renderMarkdown(value:string){
   const raw=String(value||"").replace(/\r\n?/g,"\n");
   const codeBlocks:string[]=[];
   const protectedText=raw.replace(/\`\`\`([a-zA-Z0-9_+-]*)\n([\s\S]*?)\`\`\`/g,(_,lang,code)=>{
-    const i=codeBlocks.push({lang:lang||"text",code:escapeHtml(code.replace(/\n$/,""))} as any)-1;
+    const i=codeBlocks.push({lang:lang||"text",code:code.replace(/\n$/,"")} as any)-1;
     return `@@BLOCK${i}@@`;
   });
   const lines=protectedText.split("\n");
@@ -567,7 +598,7 @@ function renderMarkdown(value:string){
     const block= line.match(/^@@BLOCK(\d+)@@$/);
     if(block){
       const item=codeBlocks[Number(block[1])] as any;
-      html.push(`<div class="vl-code-shell"><div class="vl-code-label"><span>${escapeHtml(item.lang)}</span><button type="button" class="vl-code-copy">Copy</button></div><pre><code>${item.code}</code></pre></div>`);
+      html.push(`<div class="vl-code-shell"><div class="vl-code-label"><span>${escapeHtml(item.lang)}</span><button type="button" class="vl-code-copy">Copy</button></div><pre><code>${highlightCode(item.code,item.lang)}</code></pre></div>`);
       i++;continue;
     }
 
@@ -625,26 +656,26 @@ function renderMarkdown(value:string){
 }
 
 function Md({value,article=false,toc=true}:{value:string,article?:boolean,toc?:boolean}){
+  const rootRef=useRef<HTMLDivElement>(null);
   const source=article ? String(value||"").replace(/^#\s+.+(?:\r?\n|$)/,"") : value;
   const rendered=renderMarkdown(source);
   useEffect(()=>{
-    const buttons=Array.from(document.querySelectorAll(".vl-code-copy"));
-    const handlers=buttons.map(button=>{
+    const buttons=Array.from(rootRef.current?.querySelectorAll(".vl-code-copy")||[]);
+    const cleanups=buttons.map(button=>{
       const handler=async()=>{
-        const shell=button.parentElement?.parentElement;
-        const code=shell?.querySelector("pre")?.textContent||"";
+        const code=button.parentElement?.parentElement?.querySelector("pre")?.textContent||"";
         try{await navigator.clipboard.writeText(code);button.textContent="Copied";setTimeout(()=>{button.textContent="Copy"},1200)}catch{button.textContent="Copy failed";setTimeout(()=>{button.textContent="Copy"},1200)}
       };
       button.addEventListener("click",handler);
       return ()=>button.removeEventListener("click",handler);
     });
-    return ()=>handlers.forEach(cleanup=>cleanup());
+    return()=>cleanups.forEach(cleanup=>cleanup());
   },[rendered.html]);
-  if(!article || !toc) return <div className="vl-article min-w-0" dangerouslySetInnerHTML={{__html:rendered.html}}/>;
+  if(!article || !toc) return <div ref={rootRef} className="vl-article min-w-0" dangerouslySetInnerHTML={{__html:rendered.html}}/>;
   const headings=rendered.headings.filter((x:any)=>x.level>=2 && x.level<=3);
   return <div className="grid lg:grid-cols-[220px_minmax(0,1fr)] gap-8 lg:gap-12 items-start">
     {headings.length>0&&<ArticleToc headings={headings}/>}
-    <div className="vl-article min-w-0" dangerouslySetInnerHTML={{__html:rendered.html}}/>
+    <div ref={rootRef} className="vl-article min-w-0" dangerouslySetInnerHTML={{__html:rendered.html}}/>
   </div>;
 }
 function HomePublic(){
@@ -696,6 +727,21 @@ function BlogPublic(){
     {filtered.length>0?<div className="mt-8 space-y-5">{filtered.map(p=><PostCard key={p.id} post={p}/>)}</div>:<div className="mt-8"><EmptyState title="No published articles yet." description="New engineering writing will appear here." /></div>}
   </main>);
 }
+function ReadingProgress(){
+  const [progress,setProgress]=useState(0);
+  useEffect(()=>{
+    const update=()=>{const scrollable=document.documentElement.scrollHeight-window.innerHeight;setProgress(scrollable>0?Math.min(1,Math.max(0,window.scrollY/scrollable)):0)};
+    update();window.addEventListener("scroll",update,{passive:true});window.addEventListener("resize",update);
+    return()=>{window.removeEventListener("scroll",update);window.removeEventListener("resize",update)};
+  },[]);
+  return <div className="vl-progress" aria-hidden="true" style={{width:(progress*100)+"%"}}/>;
+}
+function ArticleActions(){
+  const [copied,setCopied]=useState(false);
+  const copy=async()=>{try{await navigator.clipboard.writeText(location.href);setCopied(true);setTimeout(()=>setCopied(false),1400)}catch{}};
+  const share=async()=>{if((navigator as any).share)try{await (navigator as any).share({title:document.title,url:location.href})}catch{}else copy()};
+  return <div className="mt-5 flex flex-wrap gap-2"><button type="button" className="vl-action" onClick={copy}>{copied?"Copied link":"Copy link"}</button><button type="button" className="vl-action" onClick={share}>Share</button></div>;
+}
 function PostPublic({slug}:{slug:string}){
   const [p,setP]=useState<any>(null);
   useEffect(()=>{apiFetch("/api/posts/slug/"+encodeURIComponent(slug)).then(setP).catch(()=>setP(false))},[slug]);
@@ -707,7 +753,7 @@ function PostPublic({slug}:{slug:string}){
   const headings=renderMarkdown(String(p.content||"")).headings.filter((x:any)=>x.level>=2 && x.level<=3);
 
   return siteShell(
-    <main className="max-w-6xl mx-auto px-5 pt-7 pb-16 md:pt-10 md:pb-24">
+    <><ReadingProgress/><main className="max-w-6xl mx-auto px-5 pt-7 pb-16 md:pt-10 md:pb-24">
       <div className="grid lg:grid-cols-[220px_minmax(0,1fr)] gap-7 lg:gap-12 items-start">
         {headings.length>0&&<ArticleToc headings={headings}/>} 
         <article className="min-w-0">
@@ -725,6 +771,7 @@ function PostPublic({slug}:{slug:string}){
               {p.reading_time&&<><span>•</span><span>{p.reading_time} min read</span></>}
               {p.author_name&&<><span>•</span><span>By {p.author_name}</span></>}
             </div>
+            <ArticleActions/>
           </header>
 
           {p.cover_secure_url&&<figure className="mt-9 overflow-hidden rounded-2xl border border-slate-200 bg-slate-100 shadow-sm">
@@ -753,34 +800,43 @@ function PostPublic({slug}:{slug:string}){
           </div>
         </article>
       </div>
-    </main>
+    </main></>
   );
 }
 
 function dateFmt(s:any){return s?new Date(s).toLocaleDateString("en-IN",{year:"numeric",month:"short",day:"numeric"}):""}
 function CollectionPublic({kind}:{kind:"tools"|"projects"|"research"}){
-  const [rows,setRows]=useState<any[]>([]);
+  const [rows,setRows]=useState<any[]>([]),[query,setQuery]=useState(""),[filter,setFilter]=useState("All");
   useEffect(()=>{apiFetch(kind==="research"?"/api/content/research":"/api/content/"+kind).then(setRows).catch(()=>{})},[kind]);
-  const meta=kind==="tools"?["Developer directory","Discover useful services, infrastructure, and free tiers."]:kind==="projects"?["Build log","Applications, experiments, architecture, and things being built."]:["Technical investigations","Experiments, findings, and research notes worth sharing."];
+  const meta=kind==="tools"?["Developer directory","Discover useful services, infrastructure, APIs, and free tiers."]:kind==="projects"?["Build log","Applications, experiments, architecture, and things being built."]:["Technical investigations","Experiments, findings, and research notes worth sharing."];
+  const filters=kind==="tools"?["All",...Array.from(new Set(rows.map(x=>x.category).filter(Boolean)))]:kind==="projects"?["All",...Array.from(new Set(rows.map(x=>x.status).filter(Boolean)))]:["All"];
+  const filtered=rows.filter(x=>{const haystack=String(x.name||x.title||"")+" "+String(x.description||"")+" "+String(x.category||"");const filterOk=filter==="All"||(kind==="tools"?x.category===filter:x.status===filter);return filterOk&&(!query.trim()||haystack.toLowerCase().includes(query.trim().toLowerCase()))});
   return siteShell(<main className="max-w-6xl mx-auto px-5 py-14 md:py-20">
     <div className="max-w-3xl"><Meta><span>{meta[0]}</span></Meta><h1 className="mt-3 text-4xl font-bold tracking-tight text-slate-950 md:text-5xl">{kind[0].toUpperCase()+kind.slice(1)}</h1><p className="mt-3 text-lg leading-7 text-slate-600">{meta[1]}</p></div>
-    {rows.length>0?<div className="mt-9 grid md:grid-cols-2 lg:grid-cols-3 gap-5">{rows.map(x=><CollectionCard key={x.id} item={x} kind={kind}/>)}</div>:<div className="mt-9"><EmptyState title={`No published ${kind} yet.`} description="New work will appear here as it is published." /></div>}
+    {rows.length>0&&kind!=="research"&&<div className="mt-8 flex flex-col gap-3 md:flex-row"><div className="flex-1 rounded-2xl border border-slate-200 bg-slate-50/70 p-2"><input value={query} onChange={e=>setQuery(e.target.value)} placeholder={kind==="tools"?"Search tools, services, and infrastructure…":"Search projects…"} aria-label={"Search "+kind} className="w-full bg-transparent px-3 py-2.5 text-sm outline-none placeholder:text-slate-400"/></div>{filters.length>1&&<div className="flex gap-2 overflow-x-auto pb-1">{filters.map(f=><button key={f} type="button" onClick={()=>setFilter(f)} className={filter===f?"shrink-0 rounded-full border border-slate-950 bg-slate-950 px-3.5 py-2 text-xs font-medium text-white":"shrink-0 rounded-full border border-slate-200 bg-white px-3.5 py-2 text-xs font-medium text-slate-600 hover:border-slate-300"}>{f}</button>)}</div>}</div>}
+    {filtered.length>0?<div className="mt-9 grid md:grid-cols-2 lg:grid-cols-3 gap-5">{filtered.map(x=><CollectionCard key={x.id} item={x} kind={kind}/>)}</div>:<div className="mt-9"><EmptyState title={rows.length?"No matching "+kind+".":"No published "+kind+" yet."} description={rows.length?"Try a different search or filter.":"New work will appear here as it is published."} /></div>}
   </main>);
 }
 function DetailPublic({kind,slug}:{kind:"tools"|"projects",slug:string}){
   const [x,setX]=useState<any>(null);
   useEffect(()=>{apiFetch("/api/content/"+kind).then((rows:any[])=>setX(rows.find(r=>r.slug===slug)||false)).catch(()=>setX(false))},[kind,slug]);
   if(!x)return siteShell(<main className="max-w-3xl mx-auto px-5 py-24 text-slate-500">{x===false?<EmptyState title="Not found" description="This item may have moved or is no longer published."/>:"Loading…"}</main>);
-  return siteShell(<main className="max-w-5xl mx-auto px-5 py-14 md:py-20">
-    <article className="max-w-4xl">
-      <Meta><a href={"/"+kind} className="text-teal-700 hover:text-teal-800">{kind}</a><span>·</span><span>{kind==="tools"?(x.pricing_type||"Developer tool"):(x.status||"Project")}</span></Meta>
-      {x.logo_url&&kind==="tools"&&<img src={x.logo_url} alt="" className="mt-6 h-14 w-14 rounded-2xl border border-slate-200 bg-white object-contain p-2"/>}
-      <h1 className="mt-5 text-4xl font-bold tracking-tight text-slate-950 md:text-5xl">{x.name}</h1>
-      {x.description&&<p className="mt-4 max-w-3xl text-lg leading-8 text-slate-600">{x.description}</p>}
-      <div className="mt-6 flex flex-wrap gap-2">{x.website_url&&<a className="rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-medium text-white" href={x.website_url} target="_blank" rel="noreferrer">Website ↗</a>}{kind==="projects"&&x.repository_url&&<a className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700" href={x.repository_url} target="_blank" rel="noreferrer">Repository ↗</a>}{kind==="projects"&&x.demo_url&&<a className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700" href={x.demo_url} target="_blank" rel="noreferrer">Live demo ↗</a>}</div>
-      <div className="mt-12 border-t border-slate-200 pt-10"><Md value={x.content||x.long_description||""}/></div>
-    </article>
-  </main>);
+  return siteShell(<main className="max-w-5xl mx-auto px-5 py-14 md:py-20"><article className="max-w-4xl">
+    <Meta><a href={"/"+kind} className="text-teal-700 hover:text-teal-800">{kind}</a><span>·</span><span>{kind==="tools"?(x.pricing_type||"Developer tool"):(x.status||"Project")}</span></Meta>
+    {x.logo_url&&kind==="tools"&&<img src={x.logo_url} alt="" className="mt-6 h-14 w-14 rounded-2xl border border-slate-200 bg-white object-contain p-2"/>}
+    <h1 className="mt-5 text-4xl font-bold tracking-tight text-slate-950 md:text-5xl">{x.name}</h1>
+    {x.description&&<p className="mt-4 max-w-3xl text-lg leading-8 text-slate-600">{x.description}</p>}
+    <div className="mt-6 flex flex-wrap gap-2">{x.website_url&&<a className="rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-medium text-white" href={x.website_url} target="_blank" rel="noreferrer">Website ↗</a>}{kind==="projects"&&x.repository_url&&<a className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700" href={x.repository_url} target="_blank" rel="noreferrer">Repository ↗</a>}{kind==="projects"&&x.demo_url&&<a className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700" href={x.demo_url} target="_blank" rel="noreferrer">Live demo ↗</a>}</div>
+    {kind==="tools"&&<div className="mt-10 grid sm:grid-cols-2 gap-4"><div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-5"><div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">Category</div><div className="mt-2 text-sm font-medium text-slate-900">{x.category||"—"}</div></div><div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-5"><div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">Pricing</div><div className="mt-2 text-sm font-medium text-slate-900">{x.pricing_type||"—"}</div></div></div>}
+    {kind==="tools"&&x.free_tier&&<section className="mt-6 rounded-2xl border border-emerald-200 bg-emerald-50/70 p-5"><div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-emerald-700">Free tier</div><p className="mt-2 text-sm leading-6 text-emerald-900">{x.free_tier}</p></section>}
+    {kind==="tools"&&x.my_experience&&<section className="mt-10 border-t border-slate-200 pt-8"><SectionHeader eyebrow="Field notes" title="My experience"/><div className="mt-4 max-w-3xl"><Md value={x.my_experience}/></div></section>}
+    {kind==="tools"&&x.limitations&&<section className="mt-10 border-t border-slate-200 pt-8"><SectionHeader eyebrow="Caveats" title="Limitations"/><div className="mt-4 max-w-3xl"><Md value={x.limitations}/></div></section>}
+    {kind==="tools"&&x.long_description&&<section className="mt-10 border-t border-slate-200 pt-8"><SectionHeader eyebrow="Overview" title="More about this tool"/><div className="mt-4 max-w-3xl"><Md value={x.long_description}/></div></section>}
+    {kind==="projects"&&x.cover_secure_url&&<figure className="mt-10 overflow-hidden rounded-2xl border border-slate-200 bg-slate-100"><img src={x.cover_secure_url} alt={x.name} className="w-full max-h-[560px] object-cover"/></figure>}
+    {kind==="projects"&&<section className="mt-10 grid sm:grid-cols-2 gap-4"><div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-5"><div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">Status</div><div className="mt-2 text-sm font-medium capitalize text-slate-900">{x.status||"—"}</div></div>{x.featured&&<div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-5"><div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">Featured project</div><div className="mt-2 text-sm font-medium text-slate-900">Highlighted in the lab</div></div>}</section>}
+    {kind==="projects"&&x.content&&<div className="mt-12 border-t border-slate-200 pt-10"><Md value={x.content}/></div>}
+    <div className="mt-10"><a href={"/"+kind} className="inline-flex rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 hover:border-slate-300 hover:text-slate-950">← All {kind}</a></div>
+  </article></main>);
 }
 function ResearchPublic(){
   const [rows,setRows]=useState<any[]>([]);
