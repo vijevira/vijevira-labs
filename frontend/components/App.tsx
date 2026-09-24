@@ -383,7 +383,50 @@ function MediaManager(){
 function SettingsManager(){const [s,setS]=useState<any>({site_title:"Vijevira Labs",site_tagline:"Engineering, Research & Building.",site_description:"",github_url:"",author_name:"Vijevira Labs"}),[saved,setSaved]=useState(false);useEffect(()=>{apiFetch("/api/content/settings").then((x:any)=>setS((v:any)=>({...v,...x}))).catch(()=>{})},[]);const save=async(e:any)=>{e.preventDefault();await apiFetch("/api/content/settings",{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(s)});setSaved(true);setTimeout(()=>setSaved(false),1500)};return <AdminShell><div><div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-teal-700">System</div><h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">Settings</h1><p className="mt-2 text-sm text-slate-500">Control the publication identity and global site metadata.</p></div><form onSubmit={save} className="mt-7 max-w-3xl rounded-2xl border border-slate-200 bg-white p-6 shadow-sm space-y-5">{Object.entries(s).map(([k,v]:any)=><label key={k} className="block text-sm font-medium capitalize text-slate-700">{k.replaceAll("_"," ")}<input value={v||""} onChange={e=>setS((x:any)=>({...x,[k]:e.target.value}))} className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2.5"/></label>)}<div className="flex items-center gap-3"><button className="rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-medium text-white">Save settings</button>{saved&&<span className="text-sm text-emerald-700">Saved.</span>}</div></form></AdminShell>}
 
 
+const SITE_ORIGIN = location.origin;
+function upsertMeta(attribute:string, value:string, content:string){
+  let el=document.head.querySelector('meta['+attribute+'="'+value+'"]') as HTMLMetaElement|null;
+  if(!el){el=document.createElement("meta");el.setAttribute(attribute,value);document.head.appendChild(el)}
+  el.setAttribute("content",content);
+}
+function Seo({title,description,path,image,type="website",robots="index,follow",jsonLd}:{title:string,description:string,path:string,image?:string,type?:string,robots?:string,jsonLd?:any}){
+  useEffect(()=>{
+    const canonical=new URL(path||"/",SITE_ORIGIN).href;
+    document.title=title;
+    upsertMeta("name","description",description);
+    upsertMeta("name","robots",robots);
+    upsertMeta("property","og:title",title);
+    upsertMeta("property","og:description",description);
+    upsertMeta("property","og:type",type);
+    upsertMeta("property","og:url",canonical);
+    upsertMeta("property","og:site_name","Vijevira Labs");
+    if(image) upsertMeta("property","og:image",image);
+    upsertMeta("name","twitter:card",image?"summary_large_image":"summary");
+    upsertMeta("name","twitter:title",title);
+    upsertMeta("name","twitter:description",description);
+    let link=document.head.querySelector('link[rel="canonical"]') as HTMLLinkElement|null;
+    if(!link){link=document.createElement("link");link.rel="canonical";document.head.appendChild(link)}
+    link.href=canonical;
+    const oldJson=document.head.querySelector('script[data-vijevira-jsonld]');oldJson?.remove();
+    if(jsonLd){
+      const script=document.createElement("script");
+      script.type="application/ld+json";
+      script.dataset.vijeviraJsonld="true";
+      script.textContent=JSON.stringify(jsonLd);
+      document.head.appendChild(script);
+    }
+    return()=>{document.head.querySelector('script[data-vijevira-jsonld]')?.remove()};
+  },[title,description,path,image,type,robots,JSON.stringify(jsonLd)]);
+  return null;
+}
 const ARTICLE_STYLES = `
+:focus-visible{outline:3px solid rgba(13,148,136,.35);outline-offset:2px}
+html{scroll-behavior:smooth}
+body{margin:0}
+button,a,input,textarea,select,summary{touch-action:manipulation}
+.vl-skip{position:fixed;left:1rem;top:.75rem;z-index:100;transform:translateY(-180%);border-radius:.7rem;background:#0f172a;color:#fff;padding:.65rem .9rem;font-size:.8rem;font-weight:600;box-shadow:0 12px 24px rgba(15,23,42,.18)}
+.vl-skip:focus{transform:translateY(0)}
+.vl-main{min-height:40vh}
 .vl-article{font-size:1.08rem;line-height:1.85;color:#334155}
 .vl-article p{margin:1.25rem 0}
 .vl-article h2{margin:3rem 0 1rem;font-size:1.9rem;line-height:1.25;letter-spacing:-.02em;color:#0f172a;scroll-margin-top:6rem}
@@ -443,7 +486,7 @@ function SiteHeader(){
         </span>
       </a>
       <div className="hidden md:flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50/70 p-1">
-        {links.map(([href,label])=><a key={href} href={href} className={`rounded-full px-3.5 py-1.5 text-sm transition ${navIsActive(path,href)?"bg-white text-slate-950 shadow-sm":"text-slate-500 hover:text-slate-950"}`}>{label}</a>)}
+        {links.map(([href,label])=><a key={href} href={href} aria-current={navIsActive(path,href)?"page":undefined} className={`rounded-full px-3.5 py-1.5 text-sm transition ${navIsActive(path,href)?"bg-white text-slate-950 shadow-sm":"text-slate-500 hover:text-slate-950"}`}>{label}</a>)}
       </div>
       <div className="md:hidden flex items-center gap-2">
         <a href="/search" aria-label="Search" className="grid h-9 w-9 place-items-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50">⌕</a>
@@ -452,7 +495,7 @@ function SiteHeader(){
     </nav>
     {open&&<div className="md:hidden border-t border-slate-200 bg-white">
       <div className="max-w-6xl mx-auto px-5 py-3 grid gap-1">
-        {links.map(([href,label])=><a key={href} href={href} onClick={()=>setOpen(false)} className={`rounded-lg px-3 py-2.5 text-sm ${navIsActive(path,href)?"bg-slate-100 font-medium text-slate-950":"text-slate-600 hover:bg-slate-50"}`}>{label}</a>)}
+        {links.map(([href,label])=><a key={href} href={href} aria-current={navIsActive(path,href)?"page":undefined} onClick={()=>setOpen(false)} className={`rounded-lg px-3 py-2.5 text-sm ${navIsActive(path,href)?"bg-slate-100 font-medium text-slate-950":"text-slate-600 hover:bg-slate-50"}`}>{label}</a>)}
       </div>
     </div>}
   </header>;
@@ -518,7 +561,31 @@ function ArticleToc({headings}:{headings:any[]}){
     </details>
   </>;
 }
-function siteShell(children:any){return <div className="min-h-screen bg-white text-slate-900"><style>{ARTICLE_STYLES}</style><SiteHeader/>{children}<footer className="mt-20 border-t border-slate-200"><div className="max-w-6xl mx-auto px-5 py-10"><div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between"><div><div className="text-sm font-semibold text-slate-900">Vijevira Labs</div><div className="mt-1 text-sm text-slate-500">Engineering, Research &amp; Building.</div></div><div className="flex items-center gap-4 text-sm text-slate-500"><a href="/rss.xml" className="hover:text-slate-900">RSS</a><a href="/source" className="hover:text-slate-900">Source</a></div></div><div className="mt-6 text-xs text-slate-400">Practical engineering knowledge, research, tools, and projects.</div></div></footer></div>}
+function RouteSeo(){
+  const path=location.pathname;
+  const clean=path.replace(/\/+$/,"")||"/";
+  const defaults:any={
+    "/":["Vijevira Labs — Engineering, Research & Building","Practical engineering knowledge, research, developer tools, and project notes.","/"],
+    "/blog":["Blog — Vijevira Labs","Engineering articles, tutorials, guides, comparisons, and build notes from Vijevira Labs.","/blog"],
+    "/research":["Research — Vijevira Labs","Technical investigations, experiments, findings, and implementation research.","/research"],
+    "/tools":["Developer Tools — Vijevira Labs","Useful developer services, infrastructure, APIs, media, and free-tier tools.","/tools"],
+    "/projects":["Projects — Vijevira Labs","Applications, experiments, architecture work, and projects being built in the lab.","/projects"],
+    "/search":["Search — Vijevira Labs","Search engineering articles and technical notes from Vijevira Labs.","/search"],
+    "/about":["About — Vijevira Labs","About Vijevira Labs, an independent engineering lab for building, researching, and documenting software.","/about"]
+  };
+  let [title,description,canonical]=defaults[clean]||["Vijevira Labs — Engineering, Research & Building","Practical engineering knowledge, research, tools, and projects.","/"];
+  let robots=clean==="/search"?"noindex,follow":"index,follow";
+  if(clean.startsWith("/admin")){title="Admin — Vijevira Labs";robots="noindex,nofollow"}
+  if(clean.startsWith("/tags/")){title="Tag — Vijevira Labs";robots="index,follow"}
+  if(clean.startsWith("/topics/")){title="Topic — Vijevira Labs";robots="index,follow"}
+  if(clean.startsWith("/blog/")){title="Article — Vijevira Labs";description="Engineering article from Vijevira Labs.";canonical=clean}
+  if(clean.startsWith("/tools/")){title="Tool — Vijevira Labs";description="Developer tool notes from Vijevira Labs.";canonical=clean}
+  if(clean.startsWith("/projects/")){title="Project — Vijevira Labs";description="Project notes and implementation work from Vijevira Labs.";canonical=clean}
+  if(clean.startsWith("/research/")){title="Research — Vijevira Labs";description="Technical investigation from Vijevira Labs.";canonical=clean}
+  const jsonLd=clean==="/" ? {"@context":"https://schema.org","@type":"WebSite","name":"Vijevira Labs","url":SITE_ORIGIN,"description":description} : undefined;
+  return <Seo title={title} description={description} path={canonical} robots={robots} jsonLd={jsonLd}/>;
+}
+function siteShell(children:any){return <div className="min-h-screen bg-white text-slate-900"><style>{ARTICLE_STYLES}</style><a href="#main-content" className="vl-skip">Skip to content</a><RouteSeo/><SiteHeader/><div id="main-content" tabIndex={-1} className="vl-main">{children}</div><footer className="mt-20 border-t border-slate-200"><div className="max-w-6xl mx-auto px-5 py-10"><div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between"><div><div className="text-sm font-semibold text-slate-900">Vijevira Labs</div><div className="mt-1 text-sm text-slate-500">Engineering, Research &amp; Building.</div></div><div className="flex flex-wrap items-center gap-4 text-sm text-slate-500"><a href="/rss.xml" className="hover:text-slate-900">RSS</a><a href="/source" className="hover:text-slate-900">Source</a></div></div><div className="mt-6 text-xs text-slate-400">Practical engineering knowledge, research, tools, and projects.</div></div></footer></div>}
 function escapeHtml(value:string){
   return String(value||"")
     .replaceAll("&","&amp;")
@@ -723,7 +790,7 @@ function BlogPublic(){
       <h1 className="mt-3 text-4xl font-bold tracking-tight text-slate-950 md:text-5xl">Blog</h1>
       <p className="mt-3 text-lg leading-7 text-slate-600">Engineering articles, tutorials, guides, comparisons, and build notes.</p>
     </div>
-    <div className="mt-8 flex gap-2 overflow-x-auto pb-1">{categories.map(c=><button key={c} type="button" onClick={()=>setFilter(c)} className={`shrink-0 rounded-full border px-3.5 py-1.5 text-sm transition ${filter===c?"border-slate-950 bg-slate-950 text-white":"border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-950"}`}>{c}</button>)}</div>
+    <div className="mt-8 flex gap-2 overflow-x-auto pb-1">{categories.map(c=><button key={c} type="button" aria-pressed={filter===c} onClick={()=>setFilter(c)} className={`shrink-0 rounded-full border px-3.5 py-1.5 text-sm transition ${filter===c?"border-slate-950 bg-slate-950 text-white":"border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-950"}`}>{c}</button>)}</div>
     {filtered.length>0?<div className="mt-8 space-y-5">{filtered.map(p=><PostCard key={p.id} post={p}/>)}</div>:<div className="mt-8"><EmptyState title="No published articles yet." description="New engineering writing will appear here." /></div>}
   </main>);
 }
@@ -751,9 +818,10 @@ function PostPublic({slug}:{slug:string}){
   const cats=p.categories||[];
   const tags=p.tags||[];
   const headings=renderMarkdown(String(p.content||"")).headings.filter((x:any)=>x.level>=2 && x.level<=3);
+  const jsonLd={"@context":"https://schema.org","@type":"Article","headline":p.title,"description":p.description||"","datePublished":p.published_at||undefined,"dateModified":p.updated_at||p.published_at||undefined,"mainEntityOfPage":{"@type":"WebPage","@id":SITE_ORIGIN+"/blog/"+encodeURIComponent(p.slug)},"publisher":{"@type":"Organization","name":"Vijevira Labs","url":SITE_ORIGIN}};
 
   return siteShell(
-    <><ReadingProgress/><main className="max-w-6xl mx-auto px-5 pt-7 pb-16 md:pt-10 md:pb-24">
+    <><Seo title={p.title+" — Vijevira Labs"} description={p.description||"Engineering article from Vijevira Labs."} path={"/blog/"+p.slug} image={p.cover_secure_url||undefined} type="article" jsonLd={jsonLd}/><ReadingProgress/><main className="max-w-6xl mx-auto px-5 pt-7 pb-16 md:pt-10 md:pb-24">
       <div className="grid lg:grid-cols-[220px_minmax(0,1fr)] gap-7 lg:gap-12 items-start">
         {headings.length>0&&<ArticleToc headings={headings}/>} 
         <article className="min-w-0">
@@ -811,17 +879,18 @@ function CollectionPublic({kind}:{kind:"tools"|"projects"|"research"}){
   const meta=kind==="tools"?["Developer directory","Discover useful services, infrastructure, APIs, and free tiers."]:kind==="projects"?["Build log","Applications, experiments, architecture, and things being built."]:["Technical investigations","Experiments, findings, and research notes worth sharing."];
   const filters=kind==="tools"?["All",...Array.from(new Set(rows.map(x=>x.category).filter(Boolean)))]:kind==="projects"?["All",...Array.from(new Set(rows.map(x=>x.status).filter(Boolean)))]:["All"];
   const filtered=rows.filter(x=>{const haystack=String(x.name||x.title||"")+" "+String(x.description||"")+" "+String(x.category||"");const filterOk=filter==="All"||(kind==="tools"?x.category===filter:x.status===filter);return filterOk&&(!query.trim()||haystack.toLowerCase().includes(query.trim().toLowerCase()))});
-  return siteShell(<main className="max-w-6xl mx-auto px-5 py-14 md:py-20">
+  return siteShell(<><Seo title={(kind==="tools"?"Developer Tools":kind==="projects"?"Projects":"Research")+" — Vijevira Labs"} description={meta[1]} path={"/"+kind} type="CollectionPage"/><main className="max-w-6xl mx-auto px-5 py-14 md:py-20">
     <div className="max-w-3xl"><Meta><span>{meta[0]}</span></Meta><h1 className="mt-3 text-4xl font-bold tracking-tight text-slate-950 md:text-5xl">{kind[0].toUpperCase()+kind.slice(1)}</h1><p className="mt-3 text-lg leading-7 text-slate-600">{meta[1]}</p></div>
-    {rows.length>0&&kind!=="research"&&<div className="mt-8 flex flex-col gap-3 md:flex-row"><div className="flex-1 rounded-2xl border border-slate-200 bg-slate-50/70 p-2"><input value={query} onChange={e=>setQuery(e.target.value)} placeholder={kind==="tools"?"Search tools, services, and infrastructure…":"Search projects…"} aria-label={"Search "+kind} className="w-full bg-transparent px-3 py-2.5 text-sm outline-none placeholder:text-slate-400"/></div>{filters.length>1&&<div className="flex gap-2 overflow-x-auto pb-1">{filters.map(f=><button key={f} type="button" onClick={()=>setFilter(f)} className={filter===f?"shrink-0 rounded-full border border-slate-950 bg-slate-950 px-3.5 py-2 text-xs font-medium text-white":"shrink-0 rounded-full border border-slate-200 bg-white px-3.5 py-2 text-xs font-medium text-slate-600 hover:border-slate-300"}>{f}</button>)}</div>}</div>}
+    {rows.length>0&&kind!=="research"&&<div className="mt-8 flex flex-col gap-3 md:flex-row"><div className="flex-1 rounded-2xl border border-slate-200 bg-slate-50/70 p-2"><input value={query} onChange={e=>setQuery(e.target.value)} placeholder={kind==="tools"?"Search tools, services, and infrastructure…":"Search projects…"} aria-label={"Search "+kind} className="w-full bg-transparent px-3 py-2.5 text-sm outline-none placeholder:text-slate-400"/></div>{filters.length>1&&<div className="flex gap-2 overflow-x-auto pb-1">{filters.map(f=><button key={f} type="button" aria-pressed={filter===f} onClick={()=>setFilter(f)} className={filter===f?"shrink-0 rounded-full border border-slate-950 bg-slate-950 px-3.5 py-2 text-xs font-medium text-white":"shrink-0 rounded-full border border-slate-200 bg-white px-3.5 py-2 text-xs font-medium text-slate-600 hover:border-slate-300"}>{f}</button>)}</div>}</div>}
     {filtered.length>0?<div className="mt-9 grid md:grid-cols-2 lg:grid-cols-3 gap-5">{filtered.map(x=><CollectionCard key={x.id} item={x} kind={kind}/>)}</div>:<div className="mt-9"><EmptyState title={rows.length?"No matching "+kind+".":"No published "+kind+" yet."} description={rows.length?"Try a different search or filter.":"New work will appear here as it is published."} /></div>}
-  </main>);
+  </main></>);
 }
 function DetailPublic({kind,slug}:{kind:"tools"|"projects",slug:string}){
   const [x,setX]=useState<any>(null);
   useEffect(()=>{apiFetch("/api/content/"+kind).then((rows:any[])=>setX(rows.find(r=>r.slug===slug)||false)).catch(()=>setX(false))},[kind,slug]);
   if(!x)return siteShell(<main className="max-w-3xl mx-auto px-5 py-24 text-slate-500">{x===false?<EmptyState title="Not found" description="This item may have moved or is no longer published."/>:"Loading…"}</main>);
-  return siteShell(<main className="max-w-5xl mx-auto px-5 py-14 md:py-20"><article className="max-w-4xl">
+  const detailLd={"@context":"https://schema.org","@type":"WebPage","name":x.name,"description":x.description||"","url":SITE_ORIGIN+"/"+kind+"/"+x.slug,"isPartOf":{"@type":"WebSite","name":"Vijevira Labs","url":SITE_ORIGIN}};
+  return siteShell(<><Seo title={x.name+" — Vijevira Labs"} description={x.description||""} path={"/"+kind+"/"+x.slug} jsonLd={detailLd}/><main className="max-w-5xl mx-auto px-5 py-14 md:py-20"><article className="max-w-4xl">
     <Meta><a href={"/"+kind} className="text-teal-700 hover:text-teal-800">{kind}</a><span>·</span><span>{kind==="tools"?(x.pricing_type||"Developer tool"):(x.status||"Project")}</span></Meta>
     {x.logo_url&&kind==="tools"&&<img src={x.logo_url} alt="" className="mt-6 h-14 w-14 rounded-2xl border border-slate-200 bg-white object-contain p-2"/>}
     <h1 className="mt-5 text-4xl font-bold tracking-tight text-slate-950 md:text-5xl">{x.name}</h1>
@@ -836,52 +905,53 @@ function DetailPublic({kind,slug}:{kind:"tools"|"projects",slug:string}){
     {kind==="projects"&&<section className="mt-10 grid sm:grid-cols-2 gap-4"><div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-5"><div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">Status</div><div className="mt-2 text-sm font-medium capitalize text-slate-900">{x.status||"—"}</div></div>{x.featured&&<div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-5"><div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">Featured project</div><div className="mt-2 text-sm font-medium text-slate-900">Highlighted in the lab</div></div>}</section>}
     {kind==="projects"&&x.content&&<div className="mt-12 border-t border-slate-200 pt-10"><Md value={x.content}/></div>}
     <div className="mt-10"><a href={"/"+kind} className="inline-flex rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 hover:border-slate-300 hover:text-slate-950">← All {kind}</a></div>
-  </article></main>);
+  </article></main></>);
 }
 function ResearchPublic(){
   const [rows,setRows]=useState<any[]>([]);
   useEffect(()=>{apiFetch("/api/content/research").then(setRows).catch(()=>{})},[]);
-  return siteShell(<main className="max-w-6xl mx-auto px-5 py-14 md:py-20">
+  return siteShell(<><Seo title="Research — Vijevira Labs" description="Technical investigations, experiments, findings, and implementation research." path="/research" type="CollectionPage"/><main className="max-w-6xl mx-auto px-5 py-14 md:py-20">
     <div className="max-w-3xl"><Meta><span>Technical investigations</span></Meta><h1 className="mt-3 text-4xl font-bold tracking-tight text-slate-950 md:text-5xl">Research</h1><p className="mt-3 text-lg leading-7 text-slate-600">Questions, experiments, implementation findings, and technical investigations.</p></div>
     {rows.length>0?<div className="mt-9 grid md:grid-cols-2 lg:grid-cols-3 gap-5">{rows.map(x=><CollectionCard key={x.id} item={x} kind="research"/>)}</div>:<div className="mt-9"><EmptyState title="No published research yet." description="Research notes will appear here as investigations are completed." /></div>}
-  </main>);
+  </main></>);
 }
 function ResearchDetailPublic({id}:{id:string}){
   const [x,setX]=useState<any>(null);
   useEffect(()=>{apiFetch("/api/content/research/"+id).then(setX).catch(()=>setX(false))},[id]);
   if(!x)return siteShell(<main className="max-w-3xl mx-auto px-5 py-24 text-slate-500">{x===false?<EmptyState title="Research not found" description="This investigation may have moved or is not published yet."/>:"Loading…"}</main>);
-  return siteShell(<main className="max-w-5xl mx-auto px-5 py-14 md:py-20"><article className="max-w-4xl">
+  const researchLd={"@context":"https://schema.org","@type":"Article","headline":x.title,"description":x.description||"","datePublished":x.published_at||undefined,"dateModified":x.updated_at||undefined,"mainEntityOfPage":{"@type":"WebPage","@id":SITE_ORIGIN+"/research/"+x.id},"publisher":{"@type":"Organization","name":"Vijevira Labs","url":SITE_ORIGIN}};
+  return siteShell(<><Seo title={x.title+" — Vijevira Labs"} description={x.description||""} path={"/research/"+x.id} type="article" jsonLd={researchLd}/><main className="max-w-5xl mx-auto px-5 py-14 md:py-20"><article className="max-w-4xl">
     <Meta><a href="/research" className="text-teal-700 hover:text-teal-800">Research</a>{x.published_at&&<><span>·</span><time dateTime={x.published_at}>{dateFmt(x.published_at)}</time></>}</Meta>
     <h1 className="mt-4 text-4xl font-bold tracking-tight text-slate-950 md:text-5xl">{x.title}</h1>
     {x.description&&<p className="mt-4 max-w-3xl text-lg leading-8 text-slate-600">{x.description}</p>}
     <div className="mt-12 border-t border-slate-200 pt-10 max-w-3xl"><Md value={x.content}/></div>
     <a href="/research" className="mt-10 inline-flex rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-700 hover:border-slate-300 hover:text-slate-950">← All research</a>
-  </article></main>);
+  </article></main></>);
 }
 function SearchPublic(){
   const [rows,setRows]=useState<any[]>([]),[q,setQ]=useState(""),[loading,setLoading]=useState(false);
   const run=async(e:any)=>{e.preventDefault();if(!q.trim())return;setLoading(true);try{setRows(await apiFetch("/api/posts?status=published&limit=100&q="+encodeURIComponent(q.trim())))}finally{setLoading(false)}};
-  return siteShell(<main className="max-w-5xl mx-auto px-5 py-14 md:py-20">
+  return siteShell(<><Seo title="Search — Vijevira Labs" description="Search engineering articles and technical notes from Vijevira Labs." path="/search" robots="noindex,follow"/><main className="max-w-5xl mx-auto px-5 py-14 md:py-20">
     <div className="max-w-3xl"><Meta><span>Knowledge search</span></Meta><h1 className="mt-3 text-4xl font-bold tracking-tight text-slate-950 md:text-5xl">Search the lab</h1><p className="mt-3 text-lg leading-7 text-slate-600">Find articles across Vijevira Labs.</p></div>
     <form onSubmit={run} className="mt-8 flex gap-2 rounded-2xl border border-slate-200 bg-slate-50/70 p-2 shadow-sm">
-      <input value={q} onChange={e=>setQ(e.target.value)} placeholder="Search engineering topics, articles, and guides…" aria-label="Search articles" className="min-w-0 flex-1 bg-transparent px-3 py-2.5 text-sm outline-none placeholder:text-slate-400"/>
+      <input type="search" value={q} onChange={e=>setQ(e.target.value)} placeholder="Search engineering topics, articles, and guides…" aria-label="Search articles" className="min-w-0 flex-1 bg-transparent px-3 py-2.5 text-sm outline-none placeholder:text-slate-400"/>
       <button disabled={loading} className="rounded-xl bg-slate-950 px-5 py-2.5 text-sm font-medium text-white disabled:opacity-50">{loading?"Searching…":"Search"}</button>
     </form>
     {q&&<div className="mt-8 text-sm text-slate-500">{rows.length} {rows.length===1?"result":"results"} for <span className="font-medium text-slate-900">“{q}”</span></div>}
     <div className="mt-4 space-y-4">{rows.map(x=><a key={x.id} href={"/blog/"+x.slug} className="group block rounded-2xl border border-slate-200 bg-white p-5 transition hover:border-slate-300 hover:shadow-md"><Meta><span>{x.content_type||"article"}</span><span>·</span><span>{x.category_name||"Uncategorized"}</span></Meta><h2 className="mt-2 text-lg font-semibold text-slate-950 group-hover:text-teal-800">{x.title}</h2><p className="mt-1 text-sm leading-6 text-slate-600">{x.description}</p></a>)}</div>
     {!rows.length&&q&&<div className="mt-6"><EmptyState title="No matching articles." description="Try a broader term or search another concept." /></div>}
-  </main>);
+  </main></>);
 }
-function AboutPublic(){return siteShell(<main className="max-w-4xl mx-auto px-5 py-16 md:py-20"><div className="max-w-3xl"><Meta><span>About the lab</span></Meta><h1 className="mt-3 text-4xl font-bold tracking-tight text-slate-950 md:text-5xl">About Vijevira Labs</h1><div className="mt-8 space-y-6 text-lg leading-8 text-slate-600"><p>Vijevira Labs is an independent engineering lab for building, researching, documenting, and sharing practical software systems.</p><p>Content connects with tools, technologies, projects, experiments, and production lessons so technical knowledge stays useful beyond a single post.</p></div></div><div className="mt-14 grid md:grid-cols-3 gap-5"><div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-5"><div className="font-semibold text-slate-950">Build</div><p className="mt-2 text-sm leading-6 text-slate-600">Projects and implementation notes from things that are actually being built.</p></div><div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-5"><div className="font-semibold text-slate-950">Investigate</div><p className="mt-2 text-sm leading-6 text-slate-600">Research, experiments, trade-offs, and technical findings.</p></div><div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-5"><div className="font-semibold text-slate-950">Document</div><p className="mt-2 text-sm leading-6 text-slate-600">Articles designed to stay useful after the original problem is solved.</p></div></div></main>)}
+function AboutPublic(){return siteShell(<><Seo title="About — Vijevira Labs" description="About Vijevira Labs, an independent engineering lab for building, researching, and documenting software." path="/about" type="AboutPage"/><main className="max-w-4xl mx-auto px-5 py-16 md:py-20"><div className="max-w-3xl"><Meta><span>About the lab</span></Meta><h1 className="mt-3 text-4xl font-bold tracking-tight text-slate-950 md:text-5xl">About Vijevira Labs</h1><div className="mt-8 space-y-6 text-lg leading-8 text-slate-600"><p>Vijevira Labs is an independent engineering lab for building, researching, documenting, and sharing practical software systems.</p><p>Content connects with tools, technologies, projects, experiments, and production lessons so technical knowledge stays useful beyond a single post.</p></div></div><div className="mt-14 grid md:grid-cols-3 gap-5"><div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-5"><div className="font-semibold text-slate-950">Build</div><p className="mt-2 text-sm leading-6 text-slate-600">Projects and implementation notes from things that are actually being built.</p></div><div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-5"><div className="font-semibold text-slate-950">Investigate</div><p className="mt-2 text-sm leading-6 text-slate-600">Research, experiments, trade-offs, and technical findings.</p></div><div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-5"><div className="font-semibold text-slate-950">Document</div><p className="mt-2 text-sm leading-6 text-slate-600">Articles designed to stay useful after the original problem is solved.</p></div></div></main></>)}
 function TaxonomyPublic({slug}:{slug:string}){
   const [c,setC]=useState<any>(null),[posts,setPosts]=useState<any[]>([]);
   useEffect(()=>{apiFetch("/api/taxonomy/categories").then((rows:any[])=>{const row=rows.find((x:any)=>x.slug===slug);if(!row){setC(false);return}setC(row);return apiFetch("/api/posts?status=published&limit=100&category_id="+encodeURIComponent(row.id)).then(setPosts)}).catch(()=>setC(false))},[slug]);
   if(c===false)return siteShell(<main className="max-w-3xl mx-auto px-5 py-24"><EmptyState title="Topic not found" /></main>);
   if(!c)return siteShell(<main className="max-w-3xl mx-auto px-5 py-24 text-sm text-slate-500">Loading topic…</main>);
-  return siteShell(<main className="max-w-5xl mx-auto px-5 py-14 md:py-20">
+  return siteShell(<><Seo title={c.name+" — Vijevira Labs"} description={c.description||("Articles about "+c.name+" from Vijevira Labs.")} path={"/topics/"+c.slug} type="CollectionPage"/><main className="max-w-5xl mx-auto px-5 py-14 md:py-20">
     <div className="max-w-3xl"><Meta><span>Topic</span></Meta><h1 className="mt-3 text-4xl font-bold tracking-tight text-slate-950 md:text-5xl">{c.name}</h1>{c.description&&<p className="mt-3 text-lg leading-7 text-slate-600">{c.description}</p>}</div>
     {posts.length>0?<div className="mt-9 space-y-5">{posts.map(x=><PostCard key={x.id} post={x}/>)}</div>:<div className="mt-9"><EmptyState title="No published articles in this topic yet." /></div>}
-  </main>);
+  </main></>);
 }
 
 function TagPublic({slug}:{slug:string}){
@@ -889,10 +959,10 @@ function TagPublic({slug}:{slug:string}){
   useEffect(()=>{apiFetch("/api/taxonomy/tags/"+encodeURIComponent(slug)+"/posts").then(setData).catch(()=>setData(false))},[slug]);
   if(data===false)return siteShell(<main className="max-w-3xl mx-auto px-5 py-24"><EmptyState title="Tag not found" /></main>);
   if(!data)return siteShell(<main className="max-w-3xl mx-auto px-5 py-24 text-sm text-slate-500">Loading tag…</main>);
-  return siteShell(<main className="max-w-5xl mx-auto px-5 py-14 md:py-20">
+  return siteShell(<><Seo title={data.tag.name+" — Vijevira Labs"} description={"Articles tagged "+data.tag.name+" from Vijevira Labs."} path={"/tags/"+data.tag.slug} type="CollectionPage"/><main className="max-w-5xl mx-auto px-5 py-14 md:py-20">
     <div className="max-w-3xl"><Meta><span>Tag</span></Meta><h1 className="mt-3 text-4xl font-bold tracking-tight text-slate-950 md:text-5xl">{data.tag.name}</h1><p className="mt-3 text-slate-600">{data.posts.length} {data.posts.length===1?"article":"articles"}</p></div>
     {data.posts.length>0?<div className="mt-9 space-y-5">{data.posts.map((p:any)=><PostCard key={p.id} post={p}/>)}</div>:<div className="mt-9"><EmptyState title="No published articles use this tag yet." /></div>}
-  </main>);
+  </main></>);
 }
 
 export function App(){
