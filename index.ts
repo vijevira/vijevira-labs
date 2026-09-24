@@ -45,9 +45,75 @@ app.get("/sitemap.xml", async (c) => {
   const xml=[...urls].map(path=>"<url><loc>"+origin+path+"</loc>"+(lastByPath.get(path)?"<lastmod>"+new Date(lastByPath.get(path) as string).toISOString()+"</lastmod>":"")+"</url>").join("");
   return c.body('<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'+xml+"</urlset>",200,{"Content-Type":"application/xml; charset=UTF-8"});
 });
+async function resolveSeo(c:any){
+  const url=new URL(c.req.url);
+  const origin=url.origin;
+  const path=url.pathname.replace(/\/+$/,"")||"/";
+  const seo:any={
+    title:"Vijevira Labs — Engineering, Research & Building",
+    description:"Practical engineering knowledge, research, developer tools, and project notes.",
+    canonical:origin+path,
+    robots:"index,follow",
+    ogType:"website",
+  };
+  if(path==="/"){
+    seo.jsonLd={"@context":"https://schema.org","@type":"WebSite","name":"Vijevira Labs","url":origin,"description":seo.description};
+    return seo;
+  }
+  if(path==="/blog"){seo.title="Blog — Vijevira Labs";seo.description="Engineering articles, tutorials, guides, comparisons, and build notes from Vijevira Labs.";return seo;}
+  if(path==="/research"){seo.title="Research — Vijevira Labs";seo.description="Technical investigations, experiments, findings, and implementation research.";return seo;}
+  if(path==="/tools"){seo.title="Developer Tools — Vijevira Labs";seo.description="Useful developer services, infrastructure, APIs, media, and free-tier tools.";return seo;}
+  if(path==="/projects"){seo.title="Projects — Vijevira Labs";seo.description="Applications, experiments, architecture work, and projects being built in the lab.";return seo;}
+  if(path==="/about"){seo.title="About — Vijevira Labs";seo.description="About Vijevira Labs, an independent engineering lab for building, researching, and documenting software.";return seo;}
+  if(path==="/search"){seo.title="Search — Vijevira Labs";seo.description="Search engineering articles and technical notes from Vijevira Labs.";seo.robots="noindex,follow";return seo;}
+  if(path.startsWith("/admin")){seo.title="Admin — Vijevira Labs";seo.description="Vijevira Labs administration workspace.";seo.robots="noindex,nofollow";return seo;}
+  if(path.startsWith("/blog/")){
+    const slug=decodeURIComponent(path.slice(6));
+    const row=(await sqlite.execute("SELECT title,description,slug,published_at,updated_at,cover_image_id FROM posts WHERE slug=? AND status='published' LIMIT 1",[slug])).rows[0] as any;
+    if(row){
+      seo.title=String(row.title)+" — Vijevira Labs";
+      seo.description=String(row.description||"Engineering article from Vijevira Labs.");
+      seo.ogType="article";
+      seo.jsonLd={"@context":"https://schema.org","@type":"Article","headline":row.title,"description":row.description||"","datePublished":row.published_at||undefined,"dateModified":row.updated_at||row.published_at||undefined,"mainEntityOfPage":{"@type":"WebPage","@id":origin+path},"publisher":{"@type":"Organization","name":"Vijevira Labs","url":origin}};
+    }
+    return seo;
+  }
+  if(path.startsWith("/tools/")){
+    const slug=decodeURIComponent(path.slice(7));
+    const row=(await sqlite.execute("SELECT name,description,slug,logo_url FROM tools WHERE slug=? LIMIT 1",[slug])).rows[0] as any;
+    if(row){seo.title=String(row.name)+" — Vijevira Labs";seo.description=String(row.description||"Developer tool notes from Vijevira Labs.");if(row.logo_url)seo.image=row.logo_url;}
+    return seo;
+  }
+  if(path.startsWith("/projects/")){
+    const slug=decodeURIComponent(path.slice(10));
+    const row=(await sqlite.execute("SELECT name,description,slug,cover_image_id FROM projects WHERE slug=? LIMIT 1",[slug])).rows[0] as any;
+    if(row){seo.title=String(row.name)+" — Vijevira Labs";seo.description=String(row.description||"Project notes and implementation work from Vijevira Labs.");}
+    return seo;
+  }
+  if(path.startsWith("/research/")){
+    const id=Number(path.slice(10));
+    const row=(await sqlite.execute("SELECT id,title,description,published_at,updated_at FROM posts WHERE id=? AND status='published' AND content_type='research' LIMIT 1",[id])).rows[0] as any;
+    if(row){seo.title=String(row.title)+" — Vijevira Labs";seo.description=String(row.description||"Technical investigation from Vijevira Labs.");seo.ogType="article";seo.jsonLd={"@context":"https://schema.org","@type":"Article","headline":row.title,"description":row.description||"","datePublished":row.published_at||undefined,"dateModified":row.updated_at||undefined,"mainEntityOfPage":{"@type":"WebPage","@id":origin+path},"publisher":{"@type":"Organization","name":"Vijevira Labs","url":origin}};}
+    return seo;
+  }
+  if(path.startsWith("/topics/")){
+    const slug=decodeURIComponent(path.slice(8));
+    const row=(await sqlite.execute("SELECT name,description,slug FROM categories WHERE slug=? LIMIT 1",[slug])).rows[0] as any;
+    if(row){seo.title=String(row.name)+" — Vijevira Labs";seo.description=String(row.description||"Articles about "+row.name+" from Vijevira Labs.");}
+    return seo;
+  }
+  if(path.startsWith("/tags/")){
+    const slug=decodeURIComponent(path.slice(6));
+    const row=(await sqlite.execute("SELECT name,slug FROM tags WHERE slug=? LIMIT 1",[slug])).rows[0] as any;
+    if(row){seo.title=String(row.name)+" — Vijevira Labs";seo.description="Articles tagged "+row.name+" from Vijevira Labs.";}
+    return seo;
+  }
+  seo.robots="noindex,follow";
+  return seo;
+}
 app.get("*", async (c) => {
   await initDatabase();
-  return c.html(Root());
+  return c.html(Root(await resolveSeo(c)));
 });
 
 app.onError((err) => Promise.reject(err));
