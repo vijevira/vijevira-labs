@@ -24,7 +24,7 @@ function AdminShell({ children }: { children: any }) {
   const logout=async()=>{try{await fetch("/api/auth/logout",{method:"POST",credentials:"include"})}finally{window.location.replace("/admin/login")}};
   const isActive=(href:string)=>href==="/admin"?path==="/admin":path===href||path.startsWith(href+"/");
   if(checking)return <div className="min-h-screen bg-slate-50 flex items-center justify-center text-sm text-slate-500">Checking session…</div>;
-  return <div className="min-h-screen bg-slate-50 text-slate-900">
+  return <div className="min-h-screen bg-slate-50 text-slate-900"><Seo title="Admin — Vijevira Labs" description="Vijevira Labs administration workspace." path={location.pathname} robots="noindex,nofollow"/>
     <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 border-r border-slate-200 bg-white md:flex md:flex-col">
       <div className="px-5 pt-5">
         <a href="/admin" className="flex items-center gap-3">
@@ -80,7 +80,7 @@ function Login() {
     }
   };
 
-  return <div className="min-h-screen bg-slate-50 px-5">
+  return <div className="min-h-screen bg-slate-50 px-5"><Seo title="Sign in — Vijevira Labs" description="Vijevira Labs administration workspace." path="/admin/login" robots="noindex,nofollow"/>
     <div className="mx-auto flex min-h-screen max-w-md items-center">
       <form onSubmit={submit} className="w-full rounded-3xl border border-slate-200 bg-white p-7 shadow-xl shadow-slate-900/5 md:p-8">
         <div className="flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-xl bg-slate-950 text-[11px] font-bold text-white">VL</span><div><div className="text-sm font-semibold tracking-tight text-slate-950">Vijevira Labs</div><div className="text-[10px] uppercase tracking-[0.17em] text-slate-400">Admin workspace</div></div></div>
@@ -462,6 +462,7 @@ button,a,input,textarea,select,summary{touch-action:manipulation}
 @media(max-width:767px){.vl-progress{top:56px}}
 .vl-action{display:inline-flex;align-items:center;gap:.45rem;border:1px solid #e2e8f0;border-radius:10px;padding:.5rem .7rem;background:#fff;color:#475569;font:500 .78rem/1 ui-sans-serif,system-ui,sans-serif}
 .vl-action:hover{border-color:#cbd5e1;color:#0f172a}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}.transition,.duration-500{transition:none!important;transition-duration:0ms!important}}
 `;
 function navIsActive(path:string,href:string){
   if(href==="/blog") return path==="/blog" || path.startsWith("/blog/") || path.startsWith("/topics/") || path.startsWith("/tags/");
@@ -937,7 +938,7 @@ function SearchPublic(){
       <input type="search" value={q} onChange={e=>setQ(e.target.value)} placeholder="Search engineering topics, articles, and guides…" aria-label="Search articles" className="min-w-0 flex-1 bg-transparent px-3 py-2.5 text-sm outline-none placeholder:text-slate-400"/>
       <button disabled={loading} className="rounded-xl bg-slate-950 px-5 py-2.5 text-sm font-medium text-white disabled:opacity-50">{loading?"Searching…":"Search"}</button>
     </form>
-    {q&&<div className="mt-8 text-sm text-slate-500">{rows.length} {rows.length===1?"result":"results"} for <span className="font-medium text-slate-900">“{q}”</span></div>}
+    {q&&<div aria-live="polite" className="mt-8 text-sm text-slate-500">{rows.length} {rows.length===1?"result":"results"} for <span className="font-medium text-slate-900">“{q}”</span></div>}
     <div className="mt-4 space-y-4">{rows.map(x=><a key={x.id} href={"/blog/"+x.slug} className="group block rounded-2xl border border-slate-200 bg-white p-5 transition hover:border-slate-300 hover:shadow-md"><Meta><span>{x.content_type||"article"}</span><span>·</span><span>{x.category_name||"Uncategorized"}</span></Meta><h2 className="mt-2 text-lg font-semibold text-slate-950 group-hover:text-teal-800">{x.title}</h2><p className="mt-1 text-sm leading-6 text-slate-600">{x.description}</p></a>)}</div>
     {!rows.length&&q&&<div className="mt-6"><EmptyState title="No matching articles." description="Try a broader term or search another concept." /></div>}
   </main></>);
