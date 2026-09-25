@@ -897,10 +897,20 @@ function PostPublic({slug}:{slug:string}){
   const cats=p.categories||[];
   const tags=p.tags||[];
   const headings=renderMarkdown(String(p.content||"")).headings.filter((x:any)=>x.level>=2 && x.level<=3);
-  const jsonLd={"@context":"https://schema.org","@type":"Article","headline":p.title,"description":p.description||"","datePublished":p.published_at||undefined,"dateModified":p.updated_at||p.published_at||undefined,"mainEntityOfPage":{"@type":"WebPage","@id":SITE_ORIGIN+"/blog/"+encodeURIComponent(p.slug)},"publisher":{"@type":"Organization","name":"Vijevira Labs","url":SITE_ORIGIN}};
+  const seoTitle=p.seo_title||p.title+" — Vijevira Labs";
+  const seoDescription=p.seo_description||p.description||"Engineering article from Vijevira Labs.";
+  const articleUrl=SITE_ORIGIN+"/blog/"+encodeURIComponent(p.slug);
+  const jsonLd={"@context":"https://schema.org","@graph":[
+    {"@type":"BlogPosting","headline":p.title,"description":seoDescription,"datePublished":p.published_at||undefined,"dateModified":p.updated_at||p.published_at||undefined,"mainEntityOfPage":{"@type":"WebPage","@id":articleUrl},"author":{"@type":"Organization","name":"Vijevira Labs","url":SITE_ORIGIN},"publisher":{"@type":"Organization","name":"Vijevira Labs","url":SITE_ORIGIN},"url":articleUrl,"image":p.cover_secure_url?[p.cover_secure_url]:undefined,"inLanguage":"en"},
+    {"@type":"BreadcrumbList","itemListElement":[
+      {"@type":"ListItem","position":1,"name":"Home","item":SITE_ORIGIN+"/"},
+      {"@type":"ListItem","position":2,"name":"Blog","item":SITE_ORIGIN+"/blog"},
+      {"@type":"ListItem","position":3,"name":p.title,"item":articleUrl}
+    ]}
+  ]};
 
   return siteShell(
-    <><Seo title={p.title+" — Vijevira Labs"} description={p.description||"Engineering article from Vijevira Labs."} path={"/blog/"+p.slug} image={p.cover_secure_url||undefined} type="article" jsonLd={jsonLd}/><ReadingProgress/><main className="max-w-6xl mx-auto px-5 pt-7 pb-16 md:pt-10 md:pb-24">
+    <><Seo title={seoTitle} description={seoDescription} path={"/blog/"+p.slug} image={p.cover_secure_url||undefined} type="article" jsonLd={jsonLd}/><ReadingProgress/><main className="max-w-6xl mx-auto px-5 pt-7 pb-16 md:pt-10 md:pb-24">
       <div className="grid lg:grid-cols-[220px_minmax(0,1fr)] gap-7 lg:gap-12 items-start">
         {headings.length>0&&<ArticleToc headings={headings}/>} 
         <article className="min-w-0">
