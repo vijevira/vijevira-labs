@@ -37,8 +37,16 @@ router.get("/tools/:id",async c=>{
   return row?c.json({data:row}):err(c,404,"TOOL_NOT_FOUND","Tool not found.");
 });
 router.get("/projects/:id",async c=>{
-  await initDatabase(); const row=await getTable("projects",Number(c.req.param("id")));
-  return row?c.json({data:row}):err(c,404,"PROJECT_NOT_FOUND","Project not found.");
+  await initDatabase();
+  const id=Number(c.req.param("id"));
+  const row=await sqlite.execute("SELECT p.*,m.secure_url AS cover_secure_url,m.url AS cover_url,m.alt_text AS cover_alt FROM projects p LEFT JOIN media m ON m.id=p.cover_image_id WHERE p.id=? LIMIT 1",[id]);
+  const project=row.rows[0] as any;
+  if(!project)return err(c,404,"PROJECT_NOT_FOUND","Project not found.");
+  const articles=await sqlite.execute("SELECT p.id,p.title,p.slug,p.description,p.content_type,p.published_at FROM posts p JOIN post_projects pp ON pp.post_id=p.id WHERE pp.project_id=? AND p.status='published' ORDER BY p.published_at DESC",[id]);
+  const research=await sqlite.execute("SELECT id,title,content,status,related_post_id,updated_at FROM research_notes WHERE related_project_id=? ORDER BY updated_at DESC",[id]);
+  const technologies=await sqlite.execute("SELECT DISTINCT t.id,t.name,t.slug FROM technologies t JOIN post_technologies pt ON pt.technology_id=t.id JOIN post_projects pp ON pp.post_id=pt.post_id WHERE pp.project_id=? ORDER BY t.name",[id]);
+  const tools=await sqlite.execute("SELECT DISTINCT t.id,t.name,t.slug FROM tools t JOIN post_tools pt ON pt.tool_id=t.id JOIN post_projects pp ON pp.post_id=pt.post_id WHERE pp.project_id=? ORDER BY t.name",[id]);
+  return c.json({data:{...project,articles:articles.rows,research:research.rows,technologies:technologies.rows,tools:tools.rows}});
 });
 
 router.post("/tools",requireAuth,async c=>{
