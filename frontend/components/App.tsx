@@ -176,6 +176,34 @@ function AdminPostPreview({post,media,cats,tags}:{post:any,media:any[],cats:any[
     </div>
   </div>;
 }
+function InternalLinkSuggestions({post,items,cats,tags,techs,onInsert}:{post:any,items:any[],cats:any[],tags:any[],techs:any[],onInsert:(markdown:string)=>void}){
+  const stop=new Set(["about","after","again","also","build","building","can","from","have","into","more","that","than","the","their","this","using","with","your","you","how","what","when","where","why","and","for","not","are","was","were","will","our"]);
+  const tokens=(value:string)=>String(value||"").toLowerCase().replace(/[^a-z0-9\\s-]/g," ").split(/\\s+/).filter((x)=>x.length>2&&!stop.has(x));
+  const base=[...tokens(post.title),...tokens(post.description),...(post.category_ids||[]).map((id:number)=>cats.find((x:any)=>Number(x.id)===id)?.name||"").flatMap(tokens),...(post.tag_ids||[]).map((id:number)=>tags.find((x:any)=>Number(x.id)===id)?.name||"").flatMap(tokens),...(post.technology_ids||[]).map((id:number)=>techs.find((x:any)=>Number(x.id)===id)?.name||"").flatMap(tokens)];
+  const frequency=new Map<string,number>(); for(const t of base) frequency.set(t,(frequency.get(t)||0)+1);
+  const related=new Set((post.related_post_ids||[]).map(Number));
+  const suggestions=items.filter((x:any)=>Number(x.id)!==Number(post.id)&&x.status==="published").map((x:any)=>{
+    const candidate=tokens(String(x.title||"")+" "+String(x.description||""));
+    const overlap=[...new Set(candidate)].reduce((sum,t)=>sum+(frequency.has(t)?frequency.get(t)!*2:0),0);
+    const titleOverlap=[...new Set(tokens(x.title))].reduce((sum,t)=>sum+(frequency.has(t)?4:0),0);
+    const sameCategory=post.category_ids?.length&&String(x.category_name||"").split(", ").some((name:string)=>post.category_ids.some((id:number)=>cats.find((c:any)=>Number(c.id)===id)?.name===name))?5:0;
+    const alreadyLinked=String(post.content||"").includes("/blog/"+String(x.slug||""));
+    return {...x,score:overlap+titleOverlap+sameCategory+(related.has(Number(x.id))?2:0),alreadyLinked};
+  }).filter((x:any)=>x.score>0).sort((a:any,b:any)=>b.score-a.score).slice(0,5);
+  if(!suggestions.length)return null;
+  return <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+    <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">Internal link suggestions</div>
+    <p className="mt-1 text-xs leading-5 text-slate-500">Potentially relevant published articles from your library. Suggestions use local title, description, and taxonomy overlap.</p>
+    <div className="mt-3 space-y-2">
+      {suggestions.map((x:any)=><div key={x.id} className="rounded-xl border border-slate-100 bg-slate-50 p-3">
+        <div className="flex items-start gap-3">
+          <div className="min-w-0 flex-1"><div className="text-xs font-medium leading-5 text-slate-800">{x.title}</div><div className="mt-1 text-[10px] text-slate-400">{x.category_name||"Uncategorized"}{x.alreadyLinked?" · Already linked":related.has(Number(x.id))?" · Related":""}</div></div>
+          <button type="button" disabled={x.alreadyLinked} onClick={()=>onInsert("["+String(x.title).replace(/\\]/g,"\\\\]")+"](/blog/"+encodeURIComponent(String(x.slug||""))+")")} className="shrink-0 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[10px] font-medium text-slate-700 hover:border-slate-300 disabled:cursor-default disabled:opacity-40">{x.alreadyLinked?"Added":"Insert link"}</button>
+        </div>
+      </div>)}
+    </div>
+  </section>;
+}
 function SeoQualityPanel({post,items,media}:{post:any,items:any[],media:any[]}){
   const title=String(post.title||"").trim();
   const seoTitle=String(post.seo_title||title).trim();
@@ -298,6 +326,7 @@ function EnhancedPosts(){
   const [saveState,setSaveState]=useState<"saved"|"dirty"|"saving"|"error">("saved");
   const [lastSavedAt,setLastSavedAt]=useState<number|null>(null);
   const [mediaQuery,setMediaQuery]=useState("");
+  const contentRef=useRef<HTMLTextAreaElement|null>(null);
   const snapshot=JSON.stringify(post);
   const dirty=snapshot!==initialSnapshot;
   useEffect(()=>{setSaveState(dirty?"dirty":"saved")},[dirty]);
@@ -388,6 +417,16 @@ function EnhancedPosts(){
     }finally{setLoading(false)}
   };
   const save=async(e:any)=>{e.preventDefault();try{await persist(true)}catch{}};
+  const insertInternalLink=(markdown:string)=>{
+    const node=contentRef.current;
+    const value=String(post.content||"");
+    if(!node){setPost((p:any)=>({...p,content:value+(value?"\\n\\n":"")+markdown}));return}
+    const start=node.selectionStart??value.length;
+    const end=node.selectionEnd??start;
+    const next=value.slice(0,start)+markdown+value.slice(end);
+    setPost((p:any)=>({...p,content:next}));
+    requestAnimationFrame(()=>{node.focus();const cursor=start+markdown.length;node.setSelectionRange(cursor,cursor)});
+  };
   const goBack=()=>{if(dirty){if(confirm("You have unsaved changes. Leave without saving?")) location.href="/admin/posts"}else location.href="/admin/posts"};
   const visibleItems=items.filter(p=>(listStatus==="all"||p.status===listStatus)&&(!listQuery.trim()||String(p.title||"").toLowerCase().includes(listQuery.trim().toLowerCase())));
   const filteredMedia=media.filter((x:any)=>!mediaQuery.trim()||String(x.filename||x.public_id||"").toLowerCase().includes(mediaQuery.trim().toLowerCase()));
@@ -443,7 +482,7 @@ function EnhancedPosts(){
         <input value={post.title} onChange={e=>setPost({...post,title:e.target.value})} placeholder="Title" required className="w-full text-3xl font-semibold border-b pb-3 outline-none"/>
         <input value={post.slug||""} onChange={e=>setPost({...post,slug:e.target.value})} placeholder="Slug" className="w-full rounded-lg border px-3 py-2"/>
         <textarea value={post.description||""} onChange={e=>setPost({...post,description:e.target.value})} placeholder="Description" rows={3} className="w-full rounded-lg border px-3 py-2"/>
-        <textarea value={post.content||""} onChange={e=>setPost({...post,content:e.target.value})} placeholder="Write in Markdown..." rows={28} className="w-full rounded-lg border px-4 py-3 font-mono text-sm"/>
+        <textarea ref={contentRef} value={post.content||""} onChange={e=>setPost({...post,content:e.target.value})} placeholder="Write in Markdown..." rows={28} className="w-full rounded-lg border px-4 py-3 font-mono text-sm"/>
       </section>
       <aside className="xl:sticky xl:top-24 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-5">
         <div className="border-b border-slate-200 pb-4"><div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">Publishing</div>
@@ -472,6 +511,7 @@ function EnhancedPosts(){
           </div>
           {post.cover_image_id&&<p className="mt-2 text-xs text-slate-500">Selected: {media.find(x=>Number(x.id)===Number(post.cover_image_id))?.filename||"image"}</p>}
         </div>
+        <InternalLinkSuggestions post={post} items={items} cats={cats} tags={tags} techs={techs} onInsert={insertInternalLink}/>
         <div className="space-y-4">
           <div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">Publishing options</div>
           <label className="flex items-center gap-2 text-sm text-slate-700"><input type="checkbox" checked={!!post.featured} onChange={e=>setPost({...post,featured:e.target.checked})}/> Featured</label>
