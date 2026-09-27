@@ -230,7 +230,16 @@ async function resolveSeo(c:any){
       seo.jsonLd={
         "@context":"https://schema.org",
         "@graph":[
-          pageLd(origin,row.name,seo.description,path),
+          {
+            "@type":"SoftwareApplication",
+            name:row.name,
+            description:seo.description,
+            url:origin+path,
+            applicationCategory:"DeveloperApplication",
+            operatingSystem:"Web",
+            ...(row.repository_url?{codeRepository:row.repository_url}:{}),
+            ...(row.demo_url?{sameAs:[row.demo_url]}:{}),
+          },
           breadcrumbLd(origin,[{name:"Home",path:"/"},{name:"Projects",path:"/projects"},{name:row.name,path}])
         ]
       };
