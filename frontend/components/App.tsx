@@ -1130,25 +1130,108 @@ function CollectionPublic({kind}:{kind:"tools"|"projects"|"research"}){
 }
 function DetailPublic({kind,slug}:{kind:"tools"|"projects",slug:string}){
   const [x,setX]=useState<any>(null);
-  useEffect(()=>{apiFetch("/api/content/"+kind).then((rows:any[])=>setX(rows.find(r=>r.slug===slug)||false)).catch(()=>setX(false))},[kind,slug]);
+  useEffect(()=>{
+    apiFetch("/api/content/"+kind).then(async(rows:any[])=>{
+      const found=rows.find(r=>r.slug===slug);
+      if(!found){setX(false);return}
+      if(kind==="projects"){setX(await apiFetch("/api/content/projects/"+found.id));}
+      else setX(found);
+    }).catch(()=>setX(false));
+  },[kind,slug]);
   if(!x)return siteShell(<main className="max-w-3xl mx-auto px-5 py-24 text-slate-500">{x===false?<EmptyState title="Not found" description="This item may have moved or is no longer published."/>:"Loading…"}</main>);
-  const detailLd={"@context":"https://schema.org","@type":"WebPage","name":x.name,"description":x.description||"","url":SITE_ORIGIN+"/"+kind+"/"+x.slug,"isPartOf":{"@type":"WebSite","name":"Vijevira Labs","url":SITE_ORIGIN}};
-  return siteShell(<><Seo title={x.name+" — Vijevira Labs"} description={x.description||""} path={"/"+kind+"/"+x.slug} jsonLd={detailLd}/><main className="max-w-5xl mx-auto px-5 py-14 md:py-20"><article className="max-w-4xl">
-    <Meta><a href={"/"+kind} className="text-teal-700 hover:text-teal-800">{kind}</a><span>·</span><span>{kind==="tools"?(x.pricing_type||"Developer tool"):(x.status||"Project")}</span></Meta>
-    {x.logo_url&&kind==="tools"&&<img src={x.logo_url} alt="" className="mt-6 h-14 w-14 rounded-2xl border border-slate-200 bg-white object-contain p-2"/>}
+  const detailLd=kind==="projects"?{"@context":"https://schema.org","@type":"SoftwareApplication","name":x.name,"description":x.description||"","url":SITE_ORIGIN+"/"+kind+"/"+x.slug,"applicationCategory":"DeveloperApplication","operatingSystem":"Web","isPartOf":{"@type":"WebSite","name":"Vijevira Labs","url":SITE_ORIGIN}}:{"@context":"https://schema.org","@type":"WebPage","name":x.name,"description":x.description||"","url":SITE_ORIGIN+"/"+kind+"/"+x.slug,"isPartOf":{"@type":"WebSite","name":"Vijevira Labs","url":SITE_ORIGIN}};
+  if(kind==="tools") return siteShell(<><Seo title={x.name+" — Vijevira Labs"} description={x.description||""} path={"/tools/"+x.slug} jsonLd={detailLd}/><main className="max-w-5xl mx-auto px-5 py-14 md:py-20"><article className="max-w-4xl">
+    <Meta><a href="/tools" className="text-teal-700 hover:text-teal-800">tools</a><span>·</span><span>{x.pricing_type||"Developer tool"}</span></Meta>
+    {x.logo_url&&<img src={x.logo_url} alt="" className="mt-6 h-14 w-14 rounded-2xl border border-slate-200 bg-white object-contain p-2"/>}
     <h1 className="mt-5 text-4xl font-bold tracking-tight text-slate-950 md:text-5xl">{x.name}</h1>
     {x.description&&<p className="mt-4 max-w-3xl text-lg leading-8 text-slate-600">{x.description}</p>}
-    <div className="mt-6 flex flex-wrap gap-2">{x.website_url&&<a className="rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-medium text-white" href={x.website_url} target="_blank" rel="noreferrer">Website ↗</a>}{kind==="projects"&&x.repository_url&&<a className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700" href={x.repository_url} target="_blank" rel="noreferrer">Repository ↗</a>}{kind==="projects"&&x.demo_url&&<a className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700" href={x.demo_url} target="_blank" rel="noreferrer">Live demo ↗</a>}</div>
-    {kind==="tools"&&<div className="mt-10 grid sm:grid-cols-2 gap-4"><div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-5"><div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">Category</div><div className="mt-2 text-sm font-medium text-slate-900">{x.category||"—"}</div></div><div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-5"><div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">Pricing</div><div className="mt-2 text-sm font-medium text-slate-900">{x.pricing_type||"—"}</div></div></div>}
-    {kind==="tools"&&x.free_tier&&<section className="mt-6 rounded-2xl border border-emerald-200 bg-emerald-50/70 p-5"><div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-emerald-700">Free tier</div><p className="mt-2 text-sm leading-6 text-emerald-900">{x.free_tier}</p></section>}
-    {kind==="tools"&&x.my_experience&&<section className="mt-10 border-t border-slate-200 pt-8"><SectionHeader eyebrow="Field notes" title="My experience"/><div className="mt-4 max-w-3xl"><Md value={x.my_experience}/></div></section>}
-    {kind==="tools"&&x.limitations&&<section className="mt-10 border-t border-slate-200 pt-8"><SectionHeader eyebrow="Caveats" title="Limitations"/><div className="mt-4 max-w-3xl"><Md value={x.limitations}/></div></section>}
-    {kind==="tools"&&x.long_description&&<section className="mt-10 border-t border-slate-200 pt-8"><SectionHeader eyebrow="Overview" title="More about this tool"/><div className="mt-4 max-w-3xl"><Md value={x.long_description}/></div></section>}
-    {kind==="projects"&&x.cover_secure_url&&<figure className="mt-10 overflow-hidden rounded-2xl border border-slate-200 bg-slate-100"><img src={x.cover_secure_url} alt={x.name} className="w-full max-h-[560px] object-cover"/></figure>}
-    {kind==="projects"&&<section className="mt-10 grid sm:grid-cols-2 gap-4"><div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-5"><div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">Status</div><div className="mt-2 text-sm font-medium capitalize text-slate-900">{x.status||"—"}</div></div>{x.featured&&<div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-5"><div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">Featured project</div><div className="mt-2 text-sm font-medium text-slate-900">Highlighted in the lab</div></div>}</section>}
-    {kind==="projects"&&x.content&&<div className="mt-12 border-t border-slate-200 pt-10"><Md value={x.content}/></div>}
-    <div className="mt-10"><a href={"/"+kind} className="inline-flex rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 hover:border-slate-300 hover:text-slate-950">← All {kind}</a></div>
+    <div className="mt-6 flex flex-wrap gap-2">{x.website_url&&<a className="rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-medium text-white" href={x.website_url} target="_blank" rel="noreferrer">Website ↗</a>}</div>
+    <div className="mt-10 grid sm:grid-cols-2 gap-4"><div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-5"><div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">Category</div><div className="mt-2 text-sm font-medium text-slate-900">{x.category||"—"}</div></div><div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-5"><div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">Pricing</div><div className="mt-2 text-sm font-medium text-slate-900">{x.pricing_type||"—"}</div></div></div>
+    {x.free_tier&&<section className="mt-6 rounded-2xl border border-emerald-200 bg-emerald-50/70 p-5"><div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-emerald-700">Free tier</div><p className="mt-2 text-sm leading-6 text-emerald-900">{x.free_tier}</p></section>}
+    {x.my_experience&&<section className="mt-10 border-t border-slate-200 pt-8"><SectionHeader eyebrow="Field notes" title="My experience"/><div className="mt-4 max-w-3xl"><Md value={x.my_experience}/></div></section>}
+    {x.limitations&&<section className="mt-10 border-t border-slate-200 pt-8"><SectionHeader eyebrow="Caveats" title="Limitations"/><div className="mt-4 max-w-3xl"><Md value={x.limitations}/></div></section>}
+    {x.long_description&&<section className="mt-10 border-t border-slate-200 pt-8"><SectionHeader eyebrow="Overview" title="More about this tool"/><div className="mt-4 max-w-3xl"><Md value={x.long_description}/></div></section>}
+    <div className="mt-10"><a href="/tools" className="inline-flex rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700">← All tools</a></div>
   </article></main></>);
+
+  const stack=["Val Town","SQLite","Deno","Val Town OAuth"];
+  const security=["Public URL validation","Private/reserved address blocking","30s outbound timeout","No automatic redirect following"];
+  const roadmap=[["Folders","Organize scheduled work into durable project contexts."],["Notifications","Surface failures without requiring the dashboard to be open."],["Failure rules","Automatically disable or react to repeatedly failing jobs."],["Status pages","Expose monitored service health as a shareable surface."],["API access","Add API keys and a REST API for automation."],["Shorter intervals","Move scheduler cadence beyond the current Val Town Free constraint."]];
+  return siteShell(<><Seo title="CronDeck — A Developer-Focused Cron Scheduler & Monitor — Vijevira Labs" description={x.description||""} path="/projects/crondeck" jsonLd={detailLd}/>
+    <main className="max-w-6xl mx-auto px-5 py-10 md:py-16">
+      <article>
+        <Meta><a href="/projects" className="text-teal-700 hover:text-teal-800">Projects</a><span>·</span><span>Flagship project</span><span>·</span><span className="capitalize">{x.status||"building"}</span></Meta>
+        <div className="mt-5 max-w-4xl">
+          <h1 className="text-4xl font-bold tracking-tight text-slate-950 md:text-6xl">CronDeck</h1>
+          <p className="mt-5 max-w-3xl text-xl leading-8 text-slate-600">{x.description}</p>
+          <div className="mt-7 flex flex-wrap gap-2">
+            <a href={x.demo_url} target="_blank" rel="noreferrer" className="rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-medium text-white">Open live demo ↗</a>
+            <a href={x.repository_url} target="_blank" rel="noreferrer" className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700">Read source ↗</a>
+          </div>
+        </div>
+
+        <div className="mt-10 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {[["Scheduler","15 min","V1 cadence on Val Town Free"],["Database","SQLite","Small shared relational model"],["Auth","OAuth","Val Town OAuth in V1"],["Runtime","Val Town","Production deployment"]].map(([label,value,sub])=><div key={label} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">{label}</div><div className="mt-2 text-lg font-semibold tracking-tight text-slate-950">{value}</div><div className="mt-1 text-xs leading-5 text-slate-500">{sub}</div></div>)}
+        </div>
+
+        {x.cover_secure_url?<figure className="mt-8 overflow-hidden rounded-3xl border border-slate-200 bg-slate-100"><img src={x.cover_secure_url} alt={x.cover_alt||x.name} className="w-full max-h-[600px] object-cover"/></figure>:
+        <section className="mt-8 overflow-hidden rounded-3xl border border-slate-200 bg-slate-950 p-6 md:p-10">
+          <div className="flex items-center justify-between"><div><div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-teal-300">Architecture at a glance</div><p className="mt-2 max-w-xl text-sm leading-6 text-slate-300">A deliberately small V1: one web application, one scheduled worker, and one SQLite boundary.</p></div><span className="rounded-full border border-slate-700 px-3 py-1 text-[10px] font-medium text-slate-300">V1</span></div>
+          <div className="mt-8 grid gap-3 md:grid-cols-5 md:items-center">
+            <div className="rounded-2xl border border-slate-700 bg-slate-900 p-4"><div className="text-xs font-semibold text-white">Browser</div><div className="mt-1 text-[10px] text-slate-400">Dashboard + job controls</div></div>
+            <div className="hidden md:block text-center text-slate-500">→</div>
+            <div className="rounded-2xl border border-teal-500/40 bg-teal-500/10 p-4"><div className="text-xs font-semibold text-teal-200">Val Town app</div><div className="mt-1 text-[10px] text-slate-300">HTTP routes + auth</div></div>
+            <div className="hidden md:block text-center text-slate-500">↕</div>
+            <div className="rounded-2xl border border-slate-700 bg-slate-900 p-4"><div className="text-xs font-semibold text-white">SQLite</div><div className="mt-1 text-[10px] text-slate-400">Jobs + executions</div></div>
+          </div>
+          <div className="mt-3 grid gap-3 md:grid-cols-3 md:items-center">
+            <div className="rounded-2xl border border-slate-700 bg-slate-900 p-4 md:col-start-2"><div className="text-xs font-semibold text-white">Scheduler interval</div><div className="mt-1 text-[10px] text-slate-400">Find → claim → execute → record → schedule next run</div></div>
+            <div className="hidden md:block text-center text-slate-500">→</div>
+            <div className="rounded-2xl border border-slate-700 bg-slate-900 p-4"><div className="text-xs font-semibold text-white">Target HTTP service</div><div className="mt-1 text-[10px] text-slate-400">Validated outbound request</div></div>
+          </div>
+        </section>}
+
+        <div className="mt-12 grid gap-10 lg:grid-cols-[minmax(0,1fr)_300px] items-start">
+          <div>
+            {x.content&&<div className="vl-prose"><Md value={x.content}/></div>}
+          </div>
+          <aside className="space-y-4 lg:sticky lg:top-24">
+            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">Project state</div><div className="mt-2 text-lg font-semibold capitalize text-slate-950">{x.status||"building"}</div><p className="mt-2 text-xs leading-5 text-slate-500">This page documents the implementation as it evolves.</p></div>
+            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">Built with</div><div className="mt-3 flex flex-wrap gap-2">{stack.map(s=><span key={s} className="rounded-full bg-slate-100 px-2.5 py-1.5 text-xs text-slate-700">{s}</span>)}</div></div>
+            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">Source</div><a href={x.repository_url} target="_blank" rel="noreferrer" className="mt-2 block break-all text-xs font-medium text-teal-700 hover:text-teal-800">{x.repository_url}</a></div>
+          </aside>
+        </div>
+
+        <section className="mt-14 border-t border-slate-200 pt-10">
+          <SectionHeader eyebrow="Security boundary" title="Outbound requests are the hard part"/>
+          <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-600">CronDeck executes HTTP requests on behalf of users, so target validation is treated as a product boundary rather than a UI-only check.</p>
+          <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{security.map(s=><div key={s} className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4 text-sm font-medium text-slate-800">{s}</div>)}</div>
+        </section>
+
+        <section className="mt-14 border-t border-slate-200 pt-10">
+          <SectionHeader eyebrow="Connected knowledge" title="Read the engineering trail"/>
+          <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-600">The project is connected to implementation articles and research notes so product decisions can be read alongside the code.</p>
+          <div className="mt-6 grid gap-4 md:grid-cols-2 lg:grid-cols-3">{(x.articles||[]).map((a:any)=><a key={a.id} href={"/blog/"+a.slug} className="group rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-slate-300 hover:shadow-md"><Meta><span>{a.content_type||"article"}</span>{a.published_at&&<><span>·</span><span>{dateFmt(a.published_at)}</span></>}</Meta><h3 className="mt-2 text-base font-semibold leading-6 text-slate-950 group-hover:text-teal-800">{a.title}</h3>{a.description&&<p className="mt-2 text-sm leading-6 text-slate-500 line-clamp-3">{a.description}</p>}</a>)}</div>
+        </section>
+
+        {(x.research||[]).length>0&&<section className="mt-14 border-t border-slate-200 pt-10">
+          <SectionHeader eyebrow="Research" title="Questions still being investigated"/>
+          <div className="mt-6 grid gap-4 md:grid-cols-2">{x.research.map((r:any)=><a key={r.id} href={"/research/"+r.id} className="group rounded-2xl border border-slate-200 bg-slate-50/70 p-5 transition hover:border-slate-300"><Meta><span className="capitalize">{r.status}</span></Meta><h3 className="mt-2 text-base font-semibold text-slate-950 group-hover:text-teal-800">{r.title}</h3><p className="mt-2 text-sm leading-6 text-slate-600 line-clamp-4">{String(r.content||"").split("\n")[0]}</p></a>)}</div>
+        </section>}
+
+        <section className="mt-14 border-t border-slate-200 pt-10">
+          <SectionHeader eyebrow="Roadmap" title="Where CronDeck goes next"/>
+          <div className="mt-6 grid gap-3 md:grid-cols-2 lg:grid-cols-3">{roadmap.map(([name,copy])=><div key={name} className="rounded-2xl border border-slate-200 bg-white p-5"><div className="text-sm font-semibold text-slate-950">{name}</div><p className="mt-2 text-xs leading-5 text-slate-500">{copy}</p></div>)}</div>
+        </section>
+
+        <div className="mt-14 flex flex-wrap gap-3 border-t border-slate-200 pt-8">
+          <a href={x.demo_url} target="_blank" rel="noreferrer" className="rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-medium text-white">Open CronDeck ↗</a>
+          <a href={x.repository_url} target="_blank" rel="noreferrer" className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700">View repository ↗</a>
+          <a href="/projects" className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700">← All projects</a>
+        </div>
+      </article>
+    </main>
+  </>);
 }
 function ResearchPublic(){
   const [rows,setRows]=useState<any[]>([]);
