@@ -176,6 +176,119 @@ function AdminPostPreview({post,media,cats,tags}:{post:any,media:any[],cats:any[
     </div>
   </div>;
 }
+function SeoQualityPanel({post,items,media}:{post:any,items:any[],media:any[]}){
+  const title=String(post.title||"").trim();
+  const seoTitle=String(post.seo_title||title).trim();
+  const description=String(post.seo_description||post.description||"").trim();
+  const slug=String(post.slug||"").trim();
+  const content=String(post.content||"");
+  const wordCount=content.trim()?content.trim().split(/\s+/).filter(Boolean).length:0;
+  const h2Count=(content.match(/^##\s+/gm)||[]).length;
+  const internalLinks=(content.match(/\]\(\/(?:blog|tools|projects|research|topics|tags)(?:\/|[?#)])/g)||[]).length;
+  const relatedCount=(post.related_post_ids||[]).length;
+  const categoryCount=(post.category_ids||[]).length;
+  const tagCount=(post.tag_ids||[]).length;
+  const selectedMedia=post.cover_image_id?media.find(x=>Number(x.id)===Number(post.cover_image_id)):null;
+  const duplicateTitle=title&&items.some((x:any)=>Number(x.id)!==Number(post.id)&&String(x.title||"").trim().toLowerCase()===title.toLowerCase());
+  const checks=[
+    {
+      label:"Article title",
+      ok:title.length>=20&&title.length<=70,
+      warn:title.length>0,
+      detail:title?String(title.length)+" chars":"Add a clear descriptive title"
+    },
+    {
+      label:"Search title",
+      ok:seoTitle.length>=30&&seoTitle.length<=58,
+      warn:seoTitle.length>0&&seoTitle.length<30,
+      detail:seoTitle?String(seoTitle.length)+"/58 chars":"Uses article title until you add one"
+    },
+    {
+      label:"Meta description",
+      ok:description.length>=120&&description.length<=165,
+      warn:description.length>0,
+      detail:description?String(description.length)+"/170 chars":"Add a useful search description"
+    },
+    {
+      label:"Clean URL slug",
+      ok:/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)&&slug.length<=100,
+      warn:!slug,
+      detail:slug?slug:"Generate a short lowercase slug"
+    },
+    {
+      label:"Content structure",
+      ok:h2Count>=2,
+      warn:h2Count===1,
+      detail:h2Count+" H2 sections"
+    },
+    {
+      label:"Content depth",
+      ok:wordCount>=700,
+      warn:wordCount>=400,
+      detail:wordCount+" words"
+    },
+    {
+      label:"Internal links",
+      ok:internalLinks>=2,
+      warn:internalLinks===1,
+      detail:internalLinks+" internal link"+(internalLinks===1?"":"s")
+    },
+    {
+      label:"Related content",
+      ok:relatedCount>=2,
+      warn:relatedCount===1,
+      detail:relatedCount+" related article"+(relatedCount===1?"":"s")
+    },
+    {
+      label:"Taxonomy",
+      ok:categoryCount>=1&&tagCount>=2,
+      warn:categoryCount>=1||tagCount>=1,
+      detail:categoryCount+" categor"+(categoryCount===1?"y":"ies")+" · "+tagCount+" tags"
+    },
+    {
+      label:"Share image",
+      ok:!!(selectedMedia&&String(selectedMedia.alt_text||"").trim()),
+      warn:!!selectedMedia,
+      detail:selectedMedia?(selectedMedia.alt_text?"Alt text set":"Add alt text to the selected image"):"Add a cover image for sharing"
+    },
+    {
+      label:"Unique title",
+      ok:!duplicateTitle,
+      warn:false,
+      detail:duplicateTitle?"Another post has the same title":"No duplicate title found"
+    }
+  ];
+  const weighted=checks.reduce((sum,x)=>sum+(x.ok?1:(x.warn?0.6:0)),0);
+  const score=Math.round((weighted/checks.length)*100);
+  const tone=score>=85?"text-emerald-700 bg-emerald-50 border-emerald-200":score>=65?"text-amber-700 bg-amber-50 border-amber-200":"text-red-700 bg-red-50 border-red-200";
+  const recommendations=checks.filter(x=>!x.ok).slice(0,4);
+  return <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+    <div className="flex items-start justify-between gap-4">
+      <div>
+        <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">SEO & content quality</div>
+        <p className="mt-1 text-xs leading-5 text-slate-500">A local publishing checklist. It is a heuristic, not a Google ranking score.</p>
+      </div>
+      <div className={`shrink-0 rounded-xl border px-3 py-2 text-center ${tone}`}>
+        <div className="text-xl font-semibold leading-none">{score}</div>
+        <div className="mt-1 text-[9px] font-semibold uppercase tracking-[0.12em]">readiness</div>
+      </div>
+    </div>
+    <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-slate-900 transition-all" style={{width:score+"%"}}/></div>
+    <div className="mt-4 space-y-2">
+      {checks.map((x:any)=><div key={x.label} className="flex items-start gap-2.5">
+        <span className={`mt-0.5 grid h-4 w-4 shrink-0 place-items-center rounded-full text-[10px] font-bold ${x.ok?"bg-emerald-100 text-emerald-700":x.warn?"bg-amber-100 text-amber-700":"bg-red-100 text-red-700"}`}>{x.ok?"✓":x.warn?"!":"×"}</span>
+        <div className="min-w-0 flex-1"><div className="text-xs font-medium text-slate-800">{x.label}</div><div className="truncate text-[10px] text-slate-400">{x.detail}</div></div>
+      </div>)}
+    </div>
+    {recommendations.length>0&&<div className="mt-4 rounded-xl border border-amber-200 bg-amber-50/70 p-3">
+      <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-amber-800">Suggested fixes</div>
+      <div className="mt-2 space-y-1.5">
+        {recommendations.map((x:any)=><div key={x.label} className="text-[11px] leading-5 text-amber-900">• {x.label}: {x.warn?x.detail:"needs attention"}</div>)}
+      </div>
+    </div>}
+  </section>;
+}
+
 function EnhancedPosts(){
   const path=location.pathname, edit=path.match(/^\/admin\/posts\/(\d+)\/edit$/), id=edit?.[1];
   const [items,setItems]=useState<any[]>([]),[cats,setCats]=useState<any[]>([]),[tags,setTags]=useState<any[]>([]),[techs,setTechs]=useState<any[]>([]),[tools,setTools]=useState<any[]>([]),[projects,setProjects]=useState<any[]>([]),[media,setMedia]=useState<any[]>([]);
@@ -381,6 +494,7 @@ function EnhancedPosts(){
               <div className="mt-1 text-xs leading-5 text-slate-600">{post.seo_description||post.description||"Your search description will appear here."}</div>
             </div>
           </div>
+          <SeoQualityPanel post={post} items={items} media={media}/>
           <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
             <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">Social preview</div>
             <div className="mt-3 overflow-hidden rounded-xl border border-slate-200 bg-white">
