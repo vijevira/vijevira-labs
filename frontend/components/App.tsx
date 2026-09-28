@@ -880,8 +880,14 @@ function parseTableRow(line:string){
 
 function renderMarkdown(value:string){
   const raw=String(value||"").replace(/\r\n?/g,"\n");
+  const normalized=raw.replace(/(^|\n)((?: {4,}.*(?:\n|$))+)/g,(match,prefix,block)=>{
+    const lines=String(block).split("\n");
+    while(lines.length&&lines[lines.length-1]==="")lines.pop();
+    const code=lines.map(line=>line.startsWith("    ")?line.slice(4):line.trim()===""?"":line).join("\n");
+    return prefix+"\n```text\n"+code+"\n```";
+  });
   const codeBlocks:string[]=[];
-  const protectedText=raw.replace(/\`\`\`([a-zA-Z0-9_+-]*)\n([\s\S]*?)\`\`\`/g,(_,lang,code)=>{
+  const protectedText=normalized.replace(/\`\`\`([a-zA-Z0-9_+-]*)\n([\s\S]*?)\`\`\`/g,(_,lang,code)=>{
     const i=codeBlocks.push({lang:lang||"text",code:code.replace(/\n$/,"")} as any)-1;
     return `@@BLOCK${i}@@`;
   });
@@ -1250,7 +1256,7 @@ function ResearchDetailPublic({id}:{id:string}){
     <Meta><a href="/research" className="text-teal-700 hover:text-teal-800">Research</a>{x.published_at&&<><span>·</span><time dateTime={x.published_at}>{dateFmt(x.published_at)}</time></>}</Meta>
     <h1 className="mt-4 text-4xl font-bold tracking-tight text-slate-950 md:text-5xl">{x.title}</h1>
     {x.description&&<p className="mt-4 max-w-3xl text-lg leading-8 text-slate-600">{x.description}</p>}
-    <div className="mt-12 border-t border-slate-200 pt-10 max-w-3xl"><Md value={x.content}/></div>
+    <div className="mt-12 border-t border-slate-200 pt-10"><Md value={x.content} article/></div>
     <a href="/research" className="mt-10 inline-flex rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-700 hover:border-slate-300 hover:text-slate-950">← All research</a>
   </article></main></>);
 }
