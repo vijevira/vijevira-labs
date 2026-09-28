@@ -880,13 +880,6 @@ function parseTableRow(line:string){
 
 function renderMarkdown(value:string){
   const raw=String(value||"").replace(/\r\n?/g,"\n");
-  const normalized=raw.replace(/(^|\n)((?: {4,}.*(?:\n|$))+)/g,(match,prefix,block)=>{
-    const lines=String(block).split("\n");
-    while(lines.length&&lines[lines.length-1]==="")lines.pop();
-    const code=lines.map(line=>line.startsWith("    ")?line.slice(4):line.trim()===""?"":line).join("\n");
-    return prefix+"\n```text\n"+code+"\n```";
-  });
-  const codeBlocks:string[]=[];
   const protectedText=normalized.replace(/\`\`\`([a-zA-Z0-9_+-]*)\n([\s\S]*?)\`\`\`/g,(_,lang,code)=>{
     const i=codeBlocks.push({lang:lang||"text",code:code.replace(/\n$/,"")} as any)-1;
     return `@@BLOCK${i}@@`;
@@ -900,6 +893,17 @@ function renderMarkdown(value:string){
     const line=lines[i];
 
     if(!line.trim()){i++;continue;}
+
+    if(/^    |^\t/.test(line)){
+      const code:string[]=[];
+      while(i<lines.length && (/^    /.test(lines[i]) || /^\t/.test(lines[i]) || lines[i].trim()==="")){
+        code.push(lines[i].startsWith("    ")?lines[i].slice(4):lines[i].startsWith("\t")?lines[i].slice(1):"");
+        i++;
+      }
+      while(code.length && !code[code.length-1])code.pop();
+      html.push('<div class="vl-code-shell"><div class="vl-code-label"><span>text</span><button type="button" class="vl-code-copy">Copy</button></div><pre><code>'+highlightCode(code.join("\n"),"text")+'</code></pre></div>');
+      continue;
+    }
 
     const block= line.match(/^@@BLOCK(\d+)@@$/);
     if(block){
