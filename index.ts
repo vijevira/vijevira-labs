@@ -66,6 +66,10 @@ function articleLd(origin:string,row:any,path:string,image?:string){
   return data;
 }
 
+app.use("/api/*", async (c,next)=>{
+  await next();
+  c.header("X-Robots-Tag","noindex, nofollow");
+});
 app.route("/api", api);
 app.get("/__immutable/*", (c) => serveImmutableFile(c.req.path));
 app.get("/source", (c) => c.redirect(parseVal().links.self.val));
