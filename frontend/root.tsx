@@ -10,6 +10,8 @@ type RootSeo = {
   ogType?: string;
   image?: string;
   imageAlt?: string;
+  publishedTime?: string;
+  modifiedTime?: string;
   jsonLd?: any;
 };
 
@@ -36,6 +38,8 @@ export function Root(seo: RootSeo = {}) {
           <meta property="og:type" content={ogType} />
           {seo.image&&<meta property="og:image" content={seo.image} />}
           {seo.image&&seo.imageAlt&&<meta property="og:image:alt" content={seo.imageAlt} />}
+          {seo.publishedTime&&<meta property="article:published_time" content={seo.publishedTime} />}
+          {seo.modifiedTime&&<meta property="article:modified_time" content={seo.modifiedTime} />}
           <meta property="og:url" content={canonical||undefined} />
           <meta name="twitter:card" content={seo.image?"summary_large_image":"summary"} />
           <meta name="twitter:title" content={title} />
@@ -46,7 +50,7 @@ export function Root(seo: RootSeo = {}) {
           <title>{title}</title>
           {canonical&&<link rel="canonical" href={canonical} />}
           <link rel="alternate" type="application/rss+xml" title="Vijevira Labs RSS" href={(canonical?new URL("/rss.xml",canonical).href:"/rss.xml")} />
-          {seo.jsonLd&&<script type="application/ld+json">{raw(JSON.stringify(seo.jsonLd).replace(/</g,"\\u003c"))}</script>}
+          {seo.jsonLd&&<script type="application/ld+json" data-vijevira-jsonld="true">{raw(JSON.stringify(seo.jsonLd).replace(/</g,"\\u003c"))}</script>}
           <link rel="icon" href={immutableFileUrl("/frontend/favicon.svg")} type="image/svg+xml" />
           <script src="https://cdn.twind.style" crossOrigin="" />
         </head>
