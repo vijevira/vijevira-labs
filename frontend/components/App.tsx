@@ -670,20 +670,21 @@ function authorLdClient(){
 
 const ARTICLE_STYLES = `
 :focus-visible{outline:3px solid rgba(13,148,136,.35);outline-offset:2px}
-html{scroll-behavior:smooth}
-body{margin:0}
+html{scroll-behavior:smooth;overflow-x:hidden}
+body{margin:0;overflow-x:hidden;background:#fff}
+img,svg,video,canvas{max-width:100%}
 button,a,input,textarea,select,summary{touch-action:manipulation}
 .vl-skip{position:fixed;left:1rem;top:.75rem;z-index:100;transform:translateY(-180%);border-radius:.7rem;background:#0f172a;color:#fff;padding:.65rem .9rem;font-size:.8rem;font-weight:600;box-shadow:0 12px 24px rgba(15,23,42,.18)}
 .vl-skip:focus{transform:translateY(0)}
 .vl-main{min-height:40vh}
-.vl-article{font-size:1.08rem;line-height:1.85;color:#334155}
+.vl-article{font-size:1.08rem;line-height:1.85;color:#334155;overflow-wrap:anywhere}
 .vl-article p{margin:1.25rem 0}
 .vl-article h2{margin:3rem 0 1rem;font-size:1.9rem;line-height:1.25;letter-spacing:-.02em;color:#0f172a;scroll-margin-top:6rem}
 .vl-article h3{margin:2.25rem 0 .8rem;font-size:1.35rem;line-height:1.35;color:#0f172a;scroll-margin-top:6rem}
 .vl-article h2:first-child,.vl-article h3:first-child{margin-top:0}
 .vl-article strong{font-weight:700;color:#0f172a}
 .vl-article em{font-style:italic}
-.vl-article a{color:#0f766e;text-decoration:underline;text-decoration-color:#99f6e4;text-underline-offset:3px}
+.vl-article a{color:#0f766e;text-decoration:underline;text-decoration-color:#99f6e4;text-underline-offset:3px;overflow-wrap:anywhere}
 .vl-article a:hover{text-decoration-color:#0f766e}
 .vl-article ul,.vl-article ol{margin:1.25rem 0;padding-left:1.55rem}
 .vl-article li{margin:.5rem 0;padding-left:.25rem}
@@ -696,8 +697,8 @@ button,a,input,textarea,select,summary{touch-action:manipulation}
 .vl-code-copy{border:1px solid #334155;border-radius:7px;padding:.3rem .55rem;background:#1e293b;color:#cbd5e1;font:600 .68rem/1 ui-sans-serif,system-ui,sans-serif;text-transform:none;letter-spacing:0;cursor:pointer}
 .vl-code-copy:hover{background:#334155;color:#fff}
 .vl-tok-comment{color:#64748b;font-style:italic}.vl-tok-string{color:#a7f3d0}.vl-tok-keyword{color:#c4b5fd}.vl-tok-number{color:#fcd34d}.vl-tok-function{color:#67e8f9}.vl-tok-property{color:#93c5fd}.vl-tok-operator{color:#fda4af}
-.vl-article pre{margin:0;overflow:auto;padding:1.1rem 1.2rem;color:#e2e8f0;font:500 .9rem/1.75 ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace}
-.vl-table-wrap{margin:1.5rem 0;overflow-x:auto;border:1px solid #e2e8f0;border-radius:14px}
+.vl-article pre{margin:0;overflow:auto;-webkit-overflow-scrolling:touch;padding:1.1rem 1.2rem;color:#e2e8f0;font:500 .9rem/1.75 ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace}
+.vl-table-wrap{margin:1.5rem 0;overflow-x:auto;-webkit-overflow-scrolling:touch;border:1px solid #e2e8f0;border-radius:14px}
 .vl-article table{width:100%;border-collapse:collapse;min-width:520px;background:#fff}
 .vl-article th,.vl-article td{padding:.8rem 1rem;text-align:left;border-bottom:1px solid #e2e8f0}
 .vl-article th{background:#f8fafc;color:#0f172a;font-size:.9rem;font-weight:700}
@@ -708,7 +709,21 @@ button,a,input,textarea,select,summary{touch-action:manipulation}
 .vl-toc a:hover{color:#0f172a}
 .vl-article .vl-lead{font-size:1.18rem;line-height:1.8;color:#475569}
 .vl-progress{position:fixed;top:68px;left:0;z-index:35;height:2px;background:#0f766e;transform-origin:left center}
-@media(max-width:767px){.vl-progress{top:56px}}
+@media(max-width:767px){
+  .vl-progress{top:60px}
+  .vl-article{font-size:1rem;line-height:1.8}
+  .vl-article p{margin:1.1rem 0}
+  .vl-article h2{margin:2.35rem 0 .85rem;font-size:1.55rem;line-height:1.3}
+  .vl-article h3{margin:1.8rem 0 .7rem;font-size:1.18rem}
+  .vl-article blockquote{margin:1.35rem 0;padding:.8rem .95rem}
+  .vl-code-shell{margin:1.2rem 0;border-radius:12px}
+  .vl-code-label{padding:.5rem .7rem;font-size:.64rem}
+  .vl-code-copy{padding:.32rem .5rem}
+  .vl-article pre{padding:.9rem .85rem;font-size:.76rem;line-height:1.65}
+  .vl-table-wrap{margin:1.2rem 0;border-radius:12px}
+  .vl-article th,.vl-article td{padding:.7rem .8rem}
+  .vl-article .vl-lead{font-size:1.05rem;line-height:1.7}
+}
 .vl-action{display:inline-flex;align-items:center;gap:.45rem;border:1px solid #e2e8f0;border-radius:10px;padding:.5rem .7rem;background:#fff;color:#475569;font:500 .78rem/1 ui-sans-serif,system-ui,sans-serif}
 .vl-action:hover{border-color:#cbd5e1;color:#0f172a}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}.transition,.duration-500{transition:none!important;transition-duration:0ms!important}}
@@ -726,11 +741,17 @@ function SiteHeader(){
   const links=[
     ["/blog","Blog"],["/research","Research"],["/tools","Tools"],["/projects","Projects"],["/search","Search"],["/about","About"]
   ];
-  return <header className="sticky top-0 z-30 border-b border-slate-200/90 bg-white/92 backdrop-blur-xl">
-    <nav className="max-w-6xl mx-auto px-5 h-[68px] flex items-center justify-between gap-5">
-      <a href="/" className="flex items-center gap-3 shrink-0">
-        <span className="grid h-9 w-9 place-items-center rounded-xl bg-slate-950 text-[11px] font-bold tracking-tight text-white shadow-sm">VL</span>
-        <span className="hidden sm:block">
+  useEffect(()=>{
+    const onKey=(e:KeyboardEvent)=>{if(e.key==="Escape")setOpen(false)};
+    window.addEventListener("keydown",onKey);
+    document.body.style.overflow=open?"hidden":"";
+    return()=>{window.removeEventListener("keydown",onKey);document.body.style.overflow=""};
+  },[open]);
+  return <header className="sticky top-0 z-40 border-b border-slate-200/90 bg-white/95 backdrop-blur-xl">
+    <nav className="max-w-6xl mx-auto px-4 sm:px-5 h-[60px] sm:h-[68px] flex items-center justify-between gap-3">
+      <a href="/" className="flex items-center gap-2.5 sm:gap-3 shrink-0 min-w-0">
+        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-slate-950 text-[11px] font-bold tracking-tight text-white shadow-sm">VL</span>
+        <span className="hidden sm:block min-w-0">
           <span className="block text-[15px] font-semibold tracking-tight text-slate-950">Vijevira Labs</span>
           <span className="block text-[10px] font-medium uppercase tracking-[0.18em] text-slate-400">Engineering · Research · Building</span>
         </span>
@@ -738,14 +759,17 @@ function SiteHeader(){
       <div className="hidden md:flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50/70 p-1">
         {links.map(([href,label])=><a key={href} href={href} aria-current={navIsActive(path,href)?"page":undefined} className={`rounded-full px-3.5 py-1.5 text-sm transition ${navIsActive(path,href)?"bg-white text-slate-950 shadow-sm":"text-slate-500 hover:text-slate-950"}`}>{label}</a>)}
       </div>
-      <div className="md:hidden flex items-center gap-2">
-        <a href="/search" aria-label="Search" className="grid h-9 w-9 place-items-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50">⌕</a>
-        <button type="button" aria-label="Toggle navigation" aria-expanded={open} onClick={()=>setOpen(v=>!v)} className="grid h-9 w-9 place-items-center rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50">{open?"×":"☰"}</button>
+      <div className="md:hidden flex items-center gap-1.5">
+        <a href="/search" aria-label="Search" className="grid h-10 w-10 place-items-center rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50">
+          <svg viewBox="0 0 24 24" aria-hidden="true" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4 4"/></svg>
+        </a>
+        <button type="button" aria-label="Toggle navigation" aria-expanded={open} onClick={()=>setOpen(v=>!v)} className="grid h-10 w-10 place-items-center rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50">{open?"×":"☰"}</button>
       </div>
     </nav>
-    {open&&<div className="md:hidden border-t border-slate-200 bg-white">
-      <div className="max-w-6xl mx-auto px-5 py-3 grid gap-1">
-        {links.map(([href,label])=><a key={href} href={href} aria-current={navIsActive(path,href)?"page":undefined} onClick={()=>setOpen(false)} className={`rounded-lg px-3 py-2.5 text-sm ${navIsActive(path,href)?"bg-slate-100 font-medium text-slate-950":"text-slate-600 hover:bg-slate-50"}`}>{label}</a>)}
+    {open&&<div className="md:hidden fixed inset-x-0 top-[60px] bottom-0 border-t border-slate-200 bg-white shadow-xl shadow-slate-900/5 overflow-y-auto">
+      <div className="max-w-6xl mx-auto px-4 sm:px-5 py-4 grid gap-1">
+        <div className="mb-2 rounded-2xl bg-slate-50 px-4 py-3 text-xs leading-5 text-slate-500">Explore engineering articles, technical research, developer tools, and projects.</div>
+        {links.map(([href,label])=><a key={href} href={href} aria-current={navIsActive(path,href)?"page":undefined} onClick={()=>setOpen(false)} className={`rounded-xl px-4 py-3 text-sm ${navIsActive(path,href)?"bg-slate-100 font-medium text-slate-950":"text-slate-600 hover:bg-slate-50"}`}>{label}</a>)}
       </div>
     </div>}
   </header>;
@@ -762,28 +786,28 @@ function SectionHeader({eyebrow,title,description,href,linkLabel}:{eyebrow?:stri
 }
 function Meta({children}:{children:any}){return <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-medium uppercase tracking-[0.08em] text-slate-400">{children}</div>}
 function PostCard({post,featured=false}:{post:any,featured?:boolean}){
-  return <a href={"/blog/"+post.slug} className={`group block overflow-hidden rounded-2xl border border-slate-200 bg-white transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-lg hover:shadow-slate-900/5 ${featured?"md:grid md:grid-cols-[1.15fr_.85fr]":""}`}>
+  return <a href={"/blog/"+post.slug} className={`group block h-full overflow-hidden rounded-2xl border border-slate-200 bg-white transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-lg hover:shadow-slate-900/5 ${featured?"md:grid md:grid-cols-[1.15fr_.85fr]":""}`}>
     {post.cover_secure_url&&<div className={`overflow-hidden bg-slate-100 ${featured?"md:min-h-full":"aspect-[16/9]"}`}><img src={post.cover_secure_url} alt="" loading="lazy" className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.02]"/></div>}
-    <div className={`p-5 ${featured?"md:p-7 lg:p-8":"md:p-6"}`}>
+    <div className={`flex h-full flex-col p-5 ${featured?"md:p-7 lg:p-8":"md:p-6"}`}>
       <Meta><span>{post.content_type||"article"}</span><span>·</span><span>{post.category_name||"Uncategorized"}</span>{post.published_at&&<><span>·</span><span>{dateFmt(post.published_at)}</span></>}</Meta>
       <h3 className={`mt-3 font-semibold tracking-tight text-slate-950 group-hover:text-teal-800 ${featured?"text-2xl leading-tight md:text-3xl lg:text-4xl":"text-xl leading-snug"}`}>{post.title}</h3>
       {post.description&&<p className={`mt-3 leading-7 text-slate-600 ${featured?"text-base md:text-lg":"text-sm"}`}>{post.description}</p>}
-      <div className="mt-5 text-sm font-medium text-slate-500">{post.reading_time?post.reading_time+" min read":"Read article"} <span className="transition-transform group-hover:translate-x-0.5 inline-block">→</span></div>
+      <div className="mt-auto pt-5 text-sm font-medium text-slate-500">{post.reading_time?post.reading_time+" min read":"Read article"} <span className="transition-transform group-hover:translate-x-0.5 inline-block">→</span></div>
     </div>
   </a>;
 }
 function CollectionCard({item,kind}:{item:any,kind:"tools"|"projects"|"research"}){
   const title=item.name||item.title;
   const href=kind==="research"?"/research/"+item.id:"/"+kind+"/"+item.slug;
-  return <a href={href} className="group block overflow-hidden rounded-2xl border border-slate-200 bg-white transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-lg hover:shadow-slate-900/5">
+  return <a href={href} className="group block h-full overflow-hidden rounded-2xl border border-slate-200 bg-white transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-lg hover:shadow-slate-900/5">
     {kind==="projects"&&item.cover_secure_url&&<div className="aspect-[16/8] overflow-hidden bg-slate-100"><img src={item.cover_secure_url} alt="" loading="lazy" className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.02]"/></div>}
-    <div className="p-6">
+    <div className="flex h-full flex-col p-5 sm:p-6">
       {kind==="tools"&&item.logo_url&&<img src={item.logo_url} alt="" loading="lazy" className="mb-5 h-11 w-11 rounded-xl border border-slate-200 bg-white object-contain p-1.5"/>}
       <Meta><span>{kind==="tools"?(item.pricing_type||"Tool"):(kind==="projects"?(item.status||"Project"):"Research")}</span>{kind==="tools"&&item.category&&<><span>·</span><span>{item.category}</span></>}</Meta>
       <h3 className="mt-3 text-xl font-semibold tracking-tight text-slate-950 group-hover:text-teal-800">{title}</h3>
       {item.description&&<p className="mt-2 text-sm leading-6 text-slate-600">{item.description}</p>}
       {kind==="tools"&&item.free_tier&&<div className="mt-4 rounded-xl bg-emerald-50 px-3 py-2 text-xs leading-5 text-emerald-800"><span className="font-semibold">Free tier:</span> {item.free_tier}</div>}
-      <span className="mt-5 inline-block text-sm font-medium text-slate-500">Explore →</span>
+      <span className="mt-auto pt-5 inline-block text-sm font-medium text-slate-500">Explore →</span>
     </div>
   </a>;
 }
@@ -794,7 +818,7 @@ function ArticleToc({headings}:{headings:any[]}){
     const observer=new IntersectionObserver(entries=>{
       const visible=entries.filter(e=>e.isIntersecting).sort((a,b)=>a.boundingClientRect.top-b.boundingClientRect.top);
       if(visible[0]?.target?.id)setActive(visible[0].target.id);
-    },{rootMargin:"-88px 0px -65% 0px",threshold:[0,0.25,1]});
+    },{rootMargin:"-96px 0px -62% 0px",threshold:[0,0.2,0.5,1]});
     const els=headings.map(x=>document.getElementById(x.id)).filter(Boolean) as HTMLElement[];
     els.forEach(el=>observer.observe(el));
     return ()=>observer.disconnect();
@@ -1012,27 +1036,27 @@ function HomePublic(){
   const featured=posts.find(p=>!!p.featured)||posts[0],latest=posts.filter(p=>Number(p.id)!==Number(featured?.id)).slice(0,4);
   return siteShell(<>
     <main className="border-b border-slate-200 bg-[radial-gradient(circle_at_top_right,_rgba(13,148,136,.10),_transparent_38%),linear-gradient(180deg,#f8fafc_0%,#fff_74%)]">
-      <div className="max-w-6xl mx-auto px-5 py-20 md:py-28">
+      <div className="max-w-6xl mx-auto px-4 sm:px-5 py-14 sm:py-20 md:py-28">
         <Meta><span>Vijevira Labs</span><span>·</span><span>Engineering · Research · Building</span></Meta>
-        <h1 className="mt-5 max-w-4xl text-5xl font-bold tracking-[-0.04em] text-slate-950 md:text-7xl md:leading-[1.02]">Practical engineering knowledge for people who build.</h1>
+        <h1 className="mt-5 max-w-4xl text-4xl font-bold leading-[1.08] tracking-[-0.04em] text-slate-950 sm:text-5xl md:text-7xl md:leading-[1.02]">Practical engineering knowledge for people who build.</h1>
         <p className="mt-6 max-w-2xl text-lg leading-8 text-slate-600 md:text-xl">Technical articles, research, developer tools, and project notes drawn from real-world software systems, experiments, and implementation work.</p>
         <div className="mt-9 flex flex-wrap gap-3">
-          <a href="/blog" className="rounded-xl bg-slate-950 px-5 py-3 text-sm font-medium text-white shadow-sm transition hover:bg-slate-800">Read the blog →</a>
-          <a href="/projects" className="rounded-xl border border-slate-300 bg-white px-5 py-3 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:text-slate-950">Explore projects</a>
+          <a href="/blog" className="w-full rounded-xl bg-slate-950 px-5 py-3 text-center text-sm font-medium text-white shadow-sm transition hover:bg-slate-800 sm:w-auto">Read the blog →</a>
+          <a href="/projects" className="w-full rounded-xl border border-slate-300 bg-white px-5 py-3 text-center text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:text-slate-950 sm:w-auto">Explore projects</a>
         </div>
       </div>
     </main>
-    {featured&&<section className="max-w-6xl mx-auto px-5 pt-14 md:pt-20">
+    {featured&&<section className="max-w-6xl mx-auto px-4 sm:px-5 pt-10 sm:pt-14 md:pt-20">
       <SectionHeader eyebrow="Featured" title="Start here" description="The latest long-form work from Vijevira Labs."/>
       <div className="mt-6"><PostCard post={featured} featured/></div>
     </section>}
-    {latest.length>0&&<section className="max-w-6xl mx-auto px-5 pt-16">
+    {latest.length>0&&<section className="max-w-6xl mx-auto px-4 sm:px-5 pt-12 sm:pt-16">
       <SectionHeader eyebrow="Writing" title="Latest articles" href="/blog" linkLabel="View all articles"/>
-      <div className="mt-6 grid md:grid-cols-2 gap-5">{latest.slice(0,4).map(p=><PostCard key={p.id} post={p}/>)}</div>
+      <div className="mt-6 grid items-stretch md:grid-cols-2 gap-4 sm:gap-5">{latest.slice(0,4).map(p=><PostCard key={p.id} post={p}/>)}</div>
     </section>}
-    <section className="max-w-6xl mx-auto px-5 pt-16 pb-4">
+    <section className="max-w-6xl mx-auto px-4 sm:px-5 pt-12 sm:pt-16 pb-4">
       <SectionHeader eyebrow="Explore" title="Inside the lab" description="Follow the work beyond articles."/>
-      <div className="mt-6 grid md:grid-cols-3 gap-5">
+      <div className="mt-6 grid items-stretch md:grid-cols-3 gap-4 sm:gap-5">
         <a href="/research" className="rounded-2xl border border-slate-200 bg-slate-50/70 p-6 transition hover:bg-white hover:shadow-lg hover:shadow-slate-900/5"><div className="text-xs font-semibold uppercase tracking-[0.14em] text-teal-700">Research</div><h3 className="mt-3 text-xl font-semibold text-slate-950">Investigations & experiments</h3><p className="mt-2 text-sm leading-6 text-slate-600">Technical questions, experiments, findings, and unfinished ideas.</p><span className="mt-5 inline-block text-sm font-medium text-slate-500">Explore research →</span></a>
         <a href="/tools" className="rounded-2xl border border-slate-200 bg-slate-50/70 p-6 transition hover:bg-white hover:shadow-lg hover:shadow-slate-900/5"><div className="text-xs font-semibold uppercase tracking-[0.14em] text-teal-700">Tools</div><h3 className="mt-3 text-xl font-semibold text-slate-950">Developer tools & services</h3><p className="mt-2 text-sm leading-6 text-slate-600">Curated infrastructure, utilities, APIs, storage, AI tools, and free tiers.</p><span className="mt-5 inline-block text-sm font-medium text-slate-500">Explore tools →</span></a>
         <a href="/projects" className="rounded-2xl border border-slate-200 bg-slate-50/70 p-6 transition hover:bg-white hover:shadow-lg hover:shadow-slate-900/5"><div className="text-xs font-semibold uppercase tracking-[0.14em] text-teal-700">Projects</div><h3 className="mt-3 text-xl font-semibold text-slate-950">Things being built</h3><p className="mt-2 text-sm leading-6 text-slate-600">Applications, experiments, architecture notes, and build logs.</p><span className="mt-5 inline-block text-sm font-medium text-slate-500">Explore projects →</span></a>
@@ -1045,7 +1069,7 @@ function BlogPublic(){
   useEffect(()=>{apiFetch("/api/posts?status=published&limit=100").then(setRows).catch(()=>{})},[]);
   const categories=["All",...Array.from(new Set(rows.map(x=>x.category_name).filter(Boolean)))];
   const filtered=filter==="All"?rows:rows.filter(x=>x.category_name===filter);
-  return siteShell(<main className="max-w-6xl mx-auto px-5 py-14 md:py-20">
+  return siteShell(<main className="max-w-6xl mx-auto px-4 sm:px-5 py-10 sm:py-14 md:py-20">
     <div className="max-w-3xl">
       <Meta><span>Publication</span><span>·</span><span>{rows.length} {rows.length===1?"article":"articles"}</span></Meta>
       <h1 className="mt-3 text-4xl font-bold tracking-tight text-slate-950 md:text-5xl">Blog</h1>
