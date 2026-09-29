@@ -621,7 +621,7 @@ function upsertMeta(attribute:string, value:string, content:string){
   if(!el){el=document.createElement("meta");el.setAttribute(attribute,value);document.head.appendChild(el)}
   el.setAttribute("content",content);
 }
-function Seo({title,description,path,image,type="website",robots="index,follow",jsonLd}:{title:string,description:string,path:string,image?:string,type?:string,robots?:string,jsonLd?:any}){
+function Seo({title,description,path,image,imageAlt,type="website",robots="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1",publishedTime,modifiedTime,jsonLd}:{title:string,description:string,path:string,image?:string,imageAlt?:string,type?:string,robots?:string,publishedTime?:string,modifiedTime?:string,jsonLd?:any}){
   useEffect(()=>{
     const canonical=new URL(path||"/",SITE_ORIGIN).href;
     document.title=title;
@@ -633,13 +633,19 @@ function Seo({title,description,path,image,type="website",robots="index,follow",
     upsertMeta("property","og:url",canonical);
     upsertMeta("property","og:site_name","Vijevira Labs");
     if(image) upsertMeta("property","og:image",image);
+    if(image&&imageAlt) upsertMeta("property","og:image:alt",imageAlt);
+    if(publishedTime) upsertMeta("property","article:published_time",publishedTime);
+    if(modifiedTime) upsertMeta("property","article:modified_time",modifiedTime);
     upsertMeta("name","twitter:card",image?"summary_large_image":"summary");
     upsertMeta("name","twitter:title",title);
     upsertMeta("name","twitter:description",description);
+    if(image) upsertMeta("name","twitter:image",image);
+    if(image&&imageAlt) upsertMeta("name","twitter:image:alt",imageAlt);
     let link=document.head.querySelector('link[rel="canonical"]') as HTMLLinkElement|null;
     if(!link){link=document.createElement("link");link.rel="canonical";document.head.appendChild(link)}
     link.href=canonical;
-    const oldJson=document.head.querySelector('script[data-vijevira-jsonld]');oldJson?.remove();
+    const oldJson=document.head.querySelectorAll('script[data-vijevira-jsonld]');
+    oldJson.forEach((node)=>node.remove());
     if(jsonLd){
       const script=document.createElement("script");
       script.type="application/ld+json";
@@ -647,10 +653,21 @@ function Seo({title,description,path,image,type="website",robots="index,follow",
       script.textContent=JSON.stringify(jsonLd);
       document.head.appendChild(script);
     }
-    return()=>{document.head.querySelector('script[data-vijevira-jsonld]')?.remove()};
-  },[title,description,path,image,type,robots,JSON.stringify(jsonLd)]);
+    return()=>{document.head.querySelectorAll('script[data-vijevira-jsonld]').forEach((node)=>node.remove())};
+  },[title,description,path,image,imageAlt,type,robots,publishedTime,modifiedTime,JSON.stringify(jsonLd)]);
   return null;
 }
+function schemaDate(value:unknown){
+  const s=String(value||"").trim();
+  if(!s)return undefined;
+  if(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(s))return s.replace(" ","T")+"Z";
+  const d=new Date(s);
+  return Number.isNaN(d.getTime())?undefined:d.toISOString();
+}
+function authorLdClient(){
+  return {"@type":"Organization","@id":SITE_ORIGIN+"/about#organization","name":"Vijevira Labs","url":SITE_ORIGIN+"/about"};
+}
+
 const ARTICLE_STYLES = `
 :focus-visible{outline:3px solid rgba(13,148,136,.35);outline-offset:2px}
 html{scroll-behavior:smooth}
@@ -880,7 +897,8 @@ function parseTableRow(line:string){
 
 function renderMarkdown(value:string){
   const raw=String(value||"").replace(/\r\n?/g,"\n");
-  const protectedText=normalized.replace(/\`\`\`([a-zA-Z0-9_+-]*)\n([\s\S]*?)\`\`\`/g,(_,lang,code)=>{
+  const codeBlocks:any[]=[];
+  const protectedText=raw.replace(/\`\`\`([a-zA-Z0-9_+-]*)\n([\s\S]*?)\`\`\`/g,(_,lang,code)=>{
     const i=codeBlocks.push({lang:lang||"text",code:code.replace(/\n$/,"")} as any)-1;
     return `@@BLOCK${i}@@`;
   });
@@ -1064,8 +1082,10 @@ function PostPublic({slug}:{slug:string}){
   const seoTitle=p.seo_title||p.title+" — Vijevira Labs";
   const seoDescription=p.seo_description||p.description||"Engineering article from Vijevira Labs.";
   const articleUrl=SITE_ORIGIN+"/blog/"+encodeURIComponent(p.slug);
+  const publishedTime=schemaDate(p.published_at);
+  const modifiedTime=schemaDate(p.updated_at||p.published_at);
   const jsonLd={"@context":"https://schema.org","@graph":[
-    {"@type":"BlogPosting","headline":p.title,"description":seoDescription,"datePublished":p.published_at||undefined,"dateModified":p.updated_at||p.published_at||undefined,"mainEntityOfPage":{"@type":"WebPage","@id":articleUrl},"author":{"@type":"Organization","name":"Vijevira Labs","url":SITE_ORIGIN},"publisher":{"@type":"Organization","name":"Vijevira Labs","url":SITE_ORIGIN},"url":articleUrl,"image":p.cover_secure_url?[p.cover_secure_url]:undefined,"inLanguage":"en"},
+    {"@type":"BlogPosting","headline":p.title,"description":seoDescription,"datePublished":publishedTime,"dateModified":modifiedTime,"mainEntityOfPage":{"@type":"WebPage","@id":articleUrl},"author":authorLdClient(),"publisher":authorLdClient(),"url":articleUrl,"image":p.cover_secure_url?[p.cover_secure_url]:undefined,"inLanguage":"en"},
     {"@type":"BreadcrumbList","itemListElement":[
       {"@type":"ListItem","position":1,"name":"Home","item":SITE_ORIGIN+"/"},
       {"@type":"ListItem","position":2,"name":"Blog","item":SITE_ORIGIN+"/blog"},
@@ -1074,7 +1094,7 @@ function PostPublic({slug}:{slug:string}){
   ]};
 
   return siteShell(
-    <><Seo title={seoTitle} description={seoDescription} path={"/blog/"+p.slug} image={p.cover_secure_url||undefined} type="article" jsonLd={jsonLd}/><ReadingProgress/><main className="max-w-6xl mx-auto px-5 pt-7 pb-16 md:pt-10 md:pb-24">
+    <><Seo title={seoTitle} description={seoDescription} path={"/blog/"+p.slug} image={p.cover_secure_url||undefined} imageAlt={p.title} type="article" publishedTime={publishedTime} modifiedTime={modifiedTime} jsonLd={jsonLd}/><ReadingProgress/><main className="max-w-6xl mx-auto px-5 pt-7 pb-16 md:pt-10 md:pb-24">
       <div className="grid lg:grid-cols-[220px_minmax(0,1fr)] gap-7 lg:gap-12 items-start">
         {headings.length>0&&<ArticleToc headings={headings}/>} 
         <article className="min-w-0">
@@ -1088,7 +1108,8 @@ function PostPublic({slug}:{slug:string}){
             <h1 className="mt-5 text-4xl font-bold tracking-[-0.04em] leading-[1.06] text-slate-950 md:text-5xl lg:text-6xl">{p.title}</h1>
             {p.description&&<p className="mt-6 max-w-3xl text-lg leading-8 text-slate-600 md:text-xl">{p.description}</p>}
             <div className="mt-6 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-slate-500">
-              {p.published_at&&<time dateTime={p.published_at}>{dateFmt(p.published_at)}</time>}
+              {p.published_at&&<time dateTime={publishedTime||p.published_at}>{dateFmt(p.published_at)}</time>}
+              {p.updated_at&&publishedTime&&modifiedTime&&modifiedTime!==publishedTime&&<><span>•</span><span>Updated {dateFmt(p.updated_at)}</span></>}
               {p.reading_time&&<><span>•</span><span>{p.reading_time} min read</span></>}
               {p.author_name&&<><span>•</span><span>By {p.author_name}</span></>}
             </div>
@@ -1255,9 +1276,11 @@ function ResearchDetailPublic({id}:{id:string}){
   const [x,setX]=useState<any>(null);
   useEffect(()=>{apiFetch("/api/content/research/"+id).then(setX).catch(()=>setX(false))},[id]);
   if(!x)return siteShell(<main className="max-w-3xl mx-auto px-5 py-24 text-slate-500">{x===false?<EmptyState title="Research not found" description="This investigation may have moved or is not published yet."/>:"Loading…"}</main>);
-  const researchLd={"@context":"https://schema.org","@type":"Article","headline":x.title,"description":x.description||"","datePublished":x.published_at||undefined,"dateModified":x.updated_at||undefined,"mainEntityOfPage":{"@type":"WebPage","@id":SITE_ORIGIN+"/research/"+x.id},"publisher":{"@type":"Organization","name":"Vijevira Labs","url":SITE_ORIGIN}};
-  return siteShell(<><Seo title={x.title+" — Vijevira Labs"} description={x.description||""} path={"/research/"+x.id} type="article" jsonLd={researchLd}/><main className="max-w-5xl mx-auto px-5 py-14 md:py-20"><article className="max-w-4xl">
-    <Meta><a href="/research" className="text-teal-700 hover:text-teal-800">Research</a>{x.published_at&&<><span>·</span><time dateTime={x.published_at}>{dateFmt(x.published_at)}</time></>}</Meta>
+  const publishedTime=schemaDate(x.published_at);
+  const modifiedTime=schemaDate(x.updated_at||x.published_at);
+  const researchLd={"@context":"https://schema.org","@type":"BlogPosting","headline":x.title,"description":x.description||"","datePublished":publishedTime,"dateModified":modifiedTime,"mainEntityOfPage":{"@type":"WebPage","@id":SITE_ORIGIN+"/research/"+x.id},"author":authorLdClient(),"publisher":authorLdClient(),"url":SITE_ORIGIN+"/research/"+x.id,"image":x.cover_secure_url?[x.cover_secure_url]:undefined,"inLanguage":"en"};
+  return siteShell(<><Seo title={x.title+" — Vijevira Labs"} description={x.description||""} path={"/research/"+x.id} image={x.cover_secure_url||undefined} imageAlt={x.title} type="article" publishedTime={publishedTime} modifiedTime={modifiedTime} jsonLd={researchLd}/><main className="max-w-5xl mx-auto px-5 py-14 md:py-20"><article className="max-w-4xl">
+    <Meta><a href="/research" className="text-teal-700 hover:text-teal-800">Research</a>{x.published_at&&<><span>·</span><time dateTime={publishedTime||x.published_at}>{dateFmt(x.published_at)}</time></>}{modifiedTime&&publishedTime&&modifiedTime!==publishedTime&&<><span>·</span><span>Updated {dateFmt(x.updated_at)}</span></>}</Meta>
     <h1 className="mt-4 text-4xl font-bold tracking-tight text-slate-950 md:text-5xl">{x.title}</h1>
     {x.description&&<p className="mt-4 max-w-3xl text-lg leading-8 text-slate-600">{x.description}</p>}
     <div className="mt-12 border-t border-slate-200 pt-10"><Md value={x.content} article/></div>
