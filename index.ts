@@ -32,16 +32,33 @@ function pageLd(origin:string,name:string,description:string,path:string,type:st
   };
 }
 
+function schemaDate(value:unknown){
+  const s=String(value||"").trim();
+  if(!s)return undefined;
+  if(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(s))return s.replace(" ","T")+"Z";
+  const d=new Date(s);
+  return Number.isNaN(d.getTime())?undefined:d.toISOString();
+}
+
+function authorLd(origin:string){
+  return {
+    "@type":"Organization",
+    "@id":origin+"/about#organization",
+    name:SITE_NAME,
+    url:origin+"/about"
+  };
+}
+
 function articleLd(origin:string,row:any,path:string,image?:string){
   const data:any={
     "@type":"BlogPosting",
     headline:row.title,
     description:row.seo_description||row.description||"",
-    datePublished:row.published_at||undefined,
-    dateModified:row.updated_at||row.published_at||undefined,
+    datePublished:schemaDate(row.published_at),
+    dateModified:schemaDate(row.updated_at||row.published_at),
     mainEntityOfPage:{"@type":"WebPage","@id":origin+path},
-    author:{"@type":"Organization","name":SITE_NAME,"url":origin},
-    publisher:{"@type":"Organization","name":SITE_NAME,"url":origin},
+    author:authorLd(origin),
+    publisher:authorLd(origin),
     url:origin+path,
     inLanguage:"en"
   };
@@ -99,7 +116,7 @@ async function resolveSeo(c:any){
     title:DEFAULT_TITLE,
     description:DEFAULT_DESCRIPTION,
     canonical:origin+path,
-    robots:"index,follow",
+    robots:"index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1",
     ogType:"website"
   };
 
@@ -118,8 +135,9 @@ async function resolveSeo(c:any){
         },
         {
           "@type":"Organization",
+          "@id":origin+"/about#organization",
           name:SITE_NAME,
-          url:origin
+          url:origin+"/about"
         }
       ]
     };
@@ -157,7 +175,20 @@ async function resolveSeo(c:any){
   if(path==="/about"){
     seo.title="About Vijevira Labs — Engineering, Research & Building";
     seo.description="Vijevira Labs is an independent engineering lab for building, researching, and documenting practical software systems.";
-    seo.jsonLd=pageLd(origin,seo.title,seo.description,path,"AboutPage");
+    seo.jsonLd={
+      "@context":"https://schema.org",
+      "@graph":[
+        pageLd(origin,seo.title,seo.description,path,"AboutPage"),
+        {
+          "@type":"ProfilePage",
+          "@id":origin+"/about#profile",
+          name:"About Vijevira Labs",
+          description:seo.description,
+          url:origin+"/about",
+          mainEntity:authorLd(origin)
+        }
+      ]
+    };
     return seo;
   }
 
@@ -189,6 +220,8 @@ async function resolveSeo(c:any){
       seo.ogType="article";
       seo.image=row.secure_url||undefined;
       seo.imageAlt=row.alt_text||row.title;
+      seo.publishedTime=schemaDate(row.published_at);
+      seo.modifiedTime=schemaDate(row.updated_at||row.published_at);
       seo.jsonLd={
         "@context":"https://schema.org",
         "@graph":[
@@ -221,7 +254,7 @@ async function resolveSeo(c:any){
 
   if(path.startsWith("/projects/")){
     const slug=decodeURIComponent(path.slice(10));
-    const row=(await sqlite.execute("SELECT p.name,p.description,p.slug,p.cover_image_id,m.secure_url AS cover_secure_url,m.alt_text AS cover_alt_text FROM projects p LEFT JOIN media m ON m.id=p.cover_image_id WHERE p.slug=? LIMIT 1",[slug])).rows[0] as any;
+    const row=(await sqlite.execute("SELECT p.name,p.description,p.slug,p.repository_url,p.demo_url,p.cover_image_id,m.secure_url AS cover_secure_url,m.alt_text AS cover_alt_text FROM projects p LEFT JOIN media m ON m.id=p.cover_image_id WHERE p.slug=? LIMIT 1",[slug])).rows[0] as any;
     if(row){
       seo.title=String(row.name)+" — Vijevira Labs";
       seo.description=String(row.description||"Project notes and implementation work from Vijevira Labs.");
@@ -249,13 +282,17 @@ async function resolveSeo(c:any){
 
   if(path.startsWith("/research/")){
     const id=Number(path.slice(10));
-    const row=(await sqlite.execute("SELECT id,title,description,published_at,updated_at,seo_title,seo_description FROM posts WHERE id=? AND status='published' AND content_type='research' LIMIT 1",[id])).rows[0] as any;
+    const row=(await sqlite.execute("SELECT p.id,p.title,p.description,p.published_at,p.updated_at,p.seo_title,p.seo_description,m.secure_url,m.alt_text FROM posts p LEFT JOIN media m ON m.id=p.cover_image_id WHERE p.id=? AND p.status='published' AND p.content_type='research' LIMIT 1",[id])).rows[0] as any;
     if(row){
       const title=String(row.seo_title||row.title)+" — Vijevira Labs";
       const description=String(row.seo_description||row.description||"Technical investigation from Vijevira Labs.");
       seo.title=title;
       seo.description=description;
       seo.ogType="article";
+      seo.image=row.secure_url||undefined;
+      seo.imageAlt=row.alt_text||row.title;
+      seo.publishedTime=schemaDate(row.published_at);
+      seo.modifiedTime=schemaDate(row.updated_at||row.published_at);
       seo.jsonLd={
         "@context":"https://schema.org",
         "@graph":[
