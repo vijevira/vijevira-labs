@@ -138,6 +138,10 @@ async function resolveSeo(c:any){
     ogType:"website"
   };
   seo.author=creator.name;
+  const ga=String(publicSettings.ga_measurement_id||"").trim().toUpperCase();
+  if(/^G-[A-Z0-9]+$/.test(ga))seo.gaMeasurementId=ga;
+  const verification=String(publicSettings.google_site_verification||"").trim();
+  if(verification&&path==="/")seo.googleSiteVerification=verification;
 
   if(path==="/"){
     seo.title=DEFAULT_TITLE;
