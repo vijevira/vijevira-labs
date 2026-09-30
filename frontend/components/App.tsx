@@ -612,7 +612,37 @@ function MediaManager(){
  return <AdminShell><div><div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-teal-700">Assets</div><h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">Media</h1><p className="mt-2 text-sm text-slate-500">Cloudinary-backed image library for covers and article content.</p></div><form onSubmit={upload} className="mt-7 flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:flex-row md:items-center"><input id="media-file" type="file" accept="image/*" className="min-w-0 flex-1 text-sm text-slate-600"/><button className="rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-medium text-white">Upload image</button></form>{error&&<p className="mt-3 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}{rows.length?<div className="mt-6 grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-4">{rows.map(x=><div key={x.id} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"><img src={x.secure_url||x.url} className="aspect-video w-full object-cover"/><p className="truncate border-t border-slate-100 p-3 text-sm text-slate-600">{x.filename}</p></div>)}</div>:<div className="mt-6"><EmptyState title="No media uploaded yet." description="Upload an image to use it in articles and project pages." /></div>}</AdminShell>
 }
 
-function SettingsManager(){const [s,setS]=useState<any>({site_title:"Vijevira Labs",site_tagline:"Engineering, Research & Building.",site_description:"",github_url:"",author_name:"Vijevira Labs"}),[saved,setSaved]=useState(false);useEffect(()=>{apiFetch("/api/content/settings").then((x:any)=>setS((v:any)=>({...v,...x}))).catch(()=>{})},[]);const save=async(e:any)=>{e.preventDefault();await apiFetch("/api/content/settings",{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(s)});setSaved(true);setTimeout(()=>setSaved(false),1500)};return <AdminShell><div><div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-teal-700">System</div><h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">Settings</h1><p className="mt-2 text-sm text-slate-500">Control the publication identity and global site metadata.</p></div><form onSubmit={save} className="mt-7 max-w-3xl rounded-2xl border border-slate-200 bg-white p-6 shadow-sm space-y-5">{Object.entries(s).map(([k,v]:any)=><label key={k} className="block text-sm font-medium capitalize text-slate-700">{k.replaceAll("_"," ")}<input value={v||""} onChange={e=>setS((x:any)=>({...x,[k]:e.target.value}))} className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2.5"/></label>)}<div className="flex items-center gap-3"><button className="rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-medium text-white">Save settings</button>{saved&&<span className="text-sm text-emerald-700">Saved.</span>}</div></form></AdminShell>}
+function SettingsManager(){
+  const [s,setS]=useState<any>({
+    site_title:"Vijevira Labs",
+    site_tagline:"Engineering, Research & Building.",
+    site_description:"Practical engineering articles, technical research, developer tools, and real-world software projects from Vijevira Labs.",
+    github_url:"",
+    author_type:"Organization",
+    author_name:"Vijevira Labs",
+    author_job_title:"",
+    author_bio:"An independent engineering lab for building, researching, and documenting practical software systems.",
+    author_url:"",
+    author_image:"",
+    author_same_as:""
+  }),[saved,setSaved]=useState(false);
+  useEffect(()=>{apiFetch("/api/content/settings").then((x:any)=>setS((v:any)=>({...v,...x}))).catch(()=>{})},[]);
+  const save=async(e:any)=>{e.preventDefault();await apiFetch("/api/content/settings",{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(s)});setSaved(true);setTimeout(()=>setSaved(false),1500)};
+  const field=(key:string,label:string,description:string,opts:any={})=><label className="block">
+    <span className="text-sm font-medium text-slate-800">{label}</span>
+    <span className="mt-1 block text-xs leading-5 text-slate-500">{description}</span>
+    {opts.select?<select value={s[key]||""} onChange={e=>setS((x:any)=>({...x,[key]:e.target.value}))} className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm">{opts.select.map((x:string)=><option key={x}>{x}</option>)}</select>:
+    opts.multiline?<textarea rows={opts.rows||4} value={s[key]||""} onChange={e=>setS((x:any)=>({...x,[key]:e.target.value}))} className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-slate-400"/>:
+    <input value={s[key]||""} onChange={e=>setS((x:any)=>({...x,[key]:e.target.value}))} className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-slate-400"/>}
+  </label>;
+  return <AdminShell><div className="max-w-3xl"><div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-teal-700">System</div><h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">Settings</h1><p className="mt-2 text-sm leading-6 text-slate-500">Control publication identity, site metadata, and the public creator profile used by article authorship and structured data.</p></div>
+    <form onSubmit={save} className="mt-7 max-w-3xl space-y-6">
+      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6"><div className="text-sm font-semibold text-slate-950">Site identity</div><p className="mt-1 text-xs leading-5 text-slate-500">These values describe the publication itself.</p><div className="mt-5 space-y-5">{field("site_title","Site title","Primary publication name.")}{field("site_tagline","Tagline","Short phrase used around the site.")}{field("site_description","Site description","Default description used when a page does not provide one.",{multiline:true,rows:3})}{field("github_url","GitHub URL","Optional public repository/profile link.")}</div></section>
+      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6"><div className="text-sm font-semibold text-slate-950">Creator profile</div><p className="mt-1 text-xs leading-5 text-slate-500">This is public information. It powers the About profile and article author metadata.</p><div className="mt-5 space-y-5">{field("author_type","Creator type","Choose Person when the content is authored by an individual; choose Organization for a lab/company publication.",{select:["Organization","Person"]})}{field("author_name","Public name","Name shown publicly and used as the structured-data creator name.")}{s.author_type==="Person"&&field("author_job_title","Job title","Optional public role, separate from the creator name.")}{field("author_bio","Bio","Short public description of the creator.",{multiline:true,rows:4})}{field("author_url","Creator URL","Optional canonical public profile URL. Defaults to this site's About page when blank.")}{field("author_image","Creator image URL","Optional public, crawlable image URL. Leave blank when you do not have one.")}{field("author_same_as","Profile links","Optional public profile URLs, one per line (for example GitHub or LinkedIn).")}</div></section>
+      <div className="flex flex-wrap items-center gap-3"><button className="rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-slate-800">Save settings</button>{saved&&<span className="text-sm text-emerald-700">Saved.</span>}</div>
+    </form>
+  </AdminShell>
+}
 
 
 const SITE_ORIGIN = location.origin;
@@ -664,7 +694,19 @@ function schemaDate(value:unknown){
   const d=new Date(s);
   return Number.isNaN(d.getTime())?undefined:d.toISOString();
 }
-function authorLdClient(){
+function creatorLdClient(settings:any={}){
+  const type=String(settings.author_type||"Organization")==="Person"?"Person":"Organization";
+  const name=String(settings.author_name||"Vijevira Labs").trim()||"Vijevira Labs";
+  const url=String(settings.author_url||"").trim()||SITE_ORIGIN+"/about";
+  const data:any={"@type":type,"@id":SITE_ORIGIN+"/about#creator","name":name,"url":url};
+  if(String(settings.author_bio||"").trim())data.description=String(settings.author_bio).trim();
+  const sameAs=String(settings.author_same_as||"").split(/[\n,]+/).map((x:string)=>x.trim()).filter((x:string)=>/^https?:\/\//i.test(x));
+  if(sameAs.length)data.sameAs=[...new Set(sameAs)];
+  if(String(settings.author_image||"").trim())data.image=String(settings.author_image).trim();
+  if(type==="Person"&&String(settings.author_job_title||"").trim())data.jobTitle=String(settings.author_job_title).trim();
+  return data;
+}
+function publisherLdClient(){
   return {"@type":"Organization","@id":SITE_ORIGIN+"/about#organization","name":"Vijevira Labs","url":SITE_ORIGIN+"/about"};
 }
 
@@ -1030,6 +1072,22 @@ function Md({value,article=false,toc=true}:{value:string,article?:boolean,toc?:b
     <div ref={rootRef} className="vl-article min-w-0" dangerouslySetInnerHTML={{__html:rendered.html}}/>
   </div>;
 }
+function useCreatorSettings(){
+  const [settings,setSettings]=useState<any>({
+    author_type:"Organization",
+    author_name:"Vijevira Labs",
+    author_job_title:"",
+    author_bio:"An independent engineering lab for building, researching, and documenting practical software systems.",
+    author_url:"",
+    author_image:"",
+    author_same_as:""
+  });
+  useEffect(()=>{apiFetch("/api/content/settings").then((x:any)=>setSettings((v:any)=>({...v,...x}))).catch(()=>{})},[]);
+  return settings;
+}
+function creatorSameAs(settings:any){
+  return String(settings.author_same_as||"").split(/[\n,]+/).map((x:string)=>x.trim()).filter((x:string)=>/^https?:\/\//i.test(x));
+}
 function HomePublic(){
   const [posts,setPosts]=useState<any[]>([]);
   useEffect(()=>{apiFetch("/api/posts?status=published&limit=6").then(setPosts).catch(()=>{})},[]);
@@ -1099,6 +1157,7 @@ function ArticleActions(){
 }
 function PostPublic({slug}:{slug:string}){
   const [p,setP]=useState<any>(null);
+  const creatorSettings=useCreatorSettings();
   useEffect(()=>{apiFetch("/api/posts/slug/"+encodeURIComponent(slug)).then(setP).catch(()=>setP(false))},[slug]);
   if(p===false)return siteShell(<main className="max-w-3xl mx-auto px-5 py-24"><EmptyState title="Post not found" description="The article may have moved or is no longer published." /></main>);
   if(!p)return siteShell(<main className="max-w-3xl mx-auto px-5 py-24 text-sm text-slate-500">Loading article…</main>);
@@ -1112,7 +1171,7 @@ function PostPublic({slug}:{slug:string}){
   const publishedTime=schemaDate(p.published_at);
   const modifiedTime=schemaDate(p.updated_at||p.published_at);
   const jsonLd={"@context":"https://schema.org","@graph":[
-    {"@type":"BlogPosting","headline":p.title,"description":seoDescription,"datePublished":publishedTime,"dateModified":modifiedTime,"mainEntityOfPage":{"@type":"WebPage","@id":articleUrl},"author":authorLdClient(),"publisher":authorLdClient(),"url":articleUrl,"image":p.cover_secure_url?[p.cover_secure_url]:undefined,"inLanguage":"en"},
+    {"@type":"BlogPosting","headline":p.title,"description":seoDescription,"datePublished":publishedTime,"dateModified":modifiedTime,"mainEntityOfPage":{"@type":"WebPage","@id":articleUrl},"author":creatorLdClient(creatorSettings),"publisher":publisherLdClient(),"url":articleUrl,"image":p.cover_secure_url?[p.cover_secure_url]:undefined,"inLanguage":"en"},
     {"@type":"BreadcrumbList","itemListElement":[
       {"@type":"ListItem","position":1,"name":"Home","item":SITE_ORIGIN+"/"},
       {"@type":"ListItem","position":2,"name":"Blog","item":SITE_ORIGIN+"/blog"},
@@ -1139,7 +1198,7 @@ function PostPublic({slug}:{slug:string}){
               {p.published_at&&<time dateTime={publishedTime||p.published_at}>{dateFmt(p.published_at)}</time>}
               {p.updated_at&&publishedTime&&modifiedTime&&modifiedTime!==publishedTime&&<><span>•</span><span>Updated {dateFmt(p.updated_at)}</span></>}
               {p.reading_time&&<><span>•</span><span>{p.reading_time} min read</span></>}
-              {p.author_name&&<><span>•</span><span>By {p.author_name}</span></>}
+              {<><span>•</span><a href="/about" className="font-medium text-slate-600 hover:text-teal-700">By {creatorSettings.author_name||"Vijevira Labs"}</a></>}
             </div>
             <ArticleActions/>
           </header>
@@ -1306,11 +1365,12 @@ function ResearchPublic(){
 }
 function ResearchDetailPublic({id}:{id:string}){
   const [x,setX]=useState<any>(null);
+  const creatorSettings=useCreatorSettings();
   useEffect(()=>{apiFetch("/api/content/research/"+id).then(setX).catch(()=>setX(false))},[id]);
   if(!x)return siteShell(<main className="max-w-3xl mx-auto px-5 py-24 text-slate-500">{x===false?<EmptyState title="Research not found" description="This investigation may have moved or is not published yet."/>:"Loading…"}</main>);
   const publishedTime=schemaDate(x.published_at);
   const modifiedTime=schemaDate(x.updated_at||x.published_at);
-  const researchLd={"@context":"https://schema.org","@type":"BlogPosting","headline":x.title,"description":x.description||"","datePublished":publishedTime,"dateModified":modifiedTime,"mainEntityOfPage":{"@type":"WebPage","@id":SITE_ORIGIN+"/research/"+x.id},"author":authorLdClient(),"publisher":authorLdClient(),"url":SITE_ORIGIN+"/research/"+x.id,"image":x.cover_secure_url?[x.cover_secure_url]:undefined,"inLanguage":"en"};
+  const researchLd={"@context":"https://schema.org","@type":"BlogPosting","headline":x.title,"description":x.description||"","datePublished":publishedTime,"dateModified":modifiedTime,"mainEntityOfPage":{"@type":"WebPage","@id":SITE_ORIGIN+"/research/"+x.id},"author":creatorLdClient(creatorSettings),"publisher":publisherLdClient(),"url":SITE_ORIGIN+"/research/"+x.id,"image":x.cover_secure_url?[x.cover_secure_url]:undefined,"inLanguage":"en"};
   return siteShell(<><Seo title={x.title+" — Vijevira Labs"} description={x.description||""} path={"/research/"+x.id} image={x.cover_secure_url||undefined} imageAlt={x.title} type="article" publishedTime={publishedTime} modifiedTime={modifiedTime} jsonLd={researchLd}/><main className="max-w-5xl mx-auto px-4 sm:px-5 py-10 sm:py-14 md:py-20"><article className="max-w-4xl">
     <Meta><a href="/research" className="text-teal-700 hover:text-teal-800">Research</a>{x.published_at&&<><span>·</span><time dateTime={publishedTime||x.published_at}>{dateFmt(x.published_at)}</time></>}{modifiedTime&&publishedTime&&modifiedTime!==publishedTime&&<><span>·</span><span>Updated {dateFmt(x.updated_at)}</span></>}</Meta>
     <h1 className="mt-4 text-4xl font-bold tracking-tight text-slate-950 md:text-5xl">{x.title}</h1>
@@ -1336,7 +1396,41 @@ function SearchPublic(){
     {!searched&&!loading&&<div className="mt-8 rounded-2xl border border-dashed border-slate-300 bg-slate-50/60 p-6 sm:p-8"><div className="text-sm font-semibold text-slate-900">Search across the lab</div><p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">Search published engineering articles and jump directly into the long-form knowledge base.</p><div className="mt-4 flex flex-wrap gap-2">{["Cron jobs","SQLite","AI","DNS","PostgreSQL","Redis"].map(term=><button key={term} type="button" onClick={()=>{setQ(term);setTimeout(()=>document.querySelector("form")?.requestSubmit(),0)}} className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:border-slate-300 hover:text-slate-950">{term}</button>)}</div></div>}
   </main></>);
 }
-function AboutPublic(){return siteShell(<><Seo title="About — Vijevira Labs" description="About Vijevira Labs, an independent engineering lab for building, researching, and documenting software." path="/about" type="AboutPage"/><main className="max-w-4xl mx-auto px-5 py-16 md:py-20"><div className="max-w-3xl"><Meta><span>About the lab</span></Meta><h1 className="mt-3 text-4xl font-bold tracking-tight text-slate-950 md:text-5xl">About Vijevira Labs</h1><div className="mt-8 space-y-6 text-lg leading-8 text-slate-600"><p>Vijevira Labs is an independent engineering lab for building, researching, documenting, and sharing practical software systems.</p><p>Content connects with tools, technologies, projects, experiments, and production lessons so technical knowledge stays useful beyond a single post.</p></div></div><div className="mt-14 grid md:grid-cols-3 gap-5"><div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-5"><div className="font-semibold text-slate-950">Build</div><p className="mt-2 text-sm leading-6 text-slate-600">Projects and implementation notes from things that are actually being built.</p></div><div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-5"><div className="font-semibold text-slate-950">Investigate</div><p className="mt-2 text-sm leading-6 text-slate-600">Research, experiments, trade-offs, and technical findings.</p></div><div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-5"><div className="font-semibold text-slate-950">Document</div><p className="mt-2 text-sm leading-6 text-slate-600">Articles designed to stay useful after the original problem is solved.</p></div></div></main></>)}
+function AboutPublic(){
+  const creatorSettings=useCreatorSettings();
+  const name=creatorSettings.author_name||"Vijevira Labs";
+  const type=creatorSettings.author_type||"Organization";
+  const bio=creatorSettings.author_bio||"An independent engineering lab for building, researching, and documenting practical software systems.";
+  const links=creatorSameAs(creatorSettings);
+  const creator=creatorLdClient(creatorSettings);
+  const aboutLd={"@context":"https://schema.org","@graph":[
+    {"@type":"AboutPage","name":"About Vijevira Labs","description":"About Vijevira Labs and its public creator profile.","url":SITE_ORIGIN+"/about","mainEntity":{"@id":SITE_ORIGIN+"/about#creator"}},
+    {"@type":"ProfilePage","@id":SITE_ORIGIN+"/about#profile","name":name+" — Creator Profile","description":bio,"url":SITE_ORIGIN+"/about",mainEntity:creator}
+  ]};
+  return siteShell(<><Seo title={"About "+name+" — Vijevira Labs"} description={bio} path="/about" type="AboutPage" jsonLd={aboutLd}/>
+    <main className="max-w-4xl mx-auto px-4 sm:px-5 py-12 sm:py-16 md:py-20">
+      <section className="rounded-3xl border border-slate-200 bg-slate-50/70 p-6 sm:p-8 md:p-10">
+        <Meta><span>Creator profile</span><span>·</span><span>{type}</span></Meta>
+        {creatorSettings.author_image&&<img src={creatorSettings.author_image} alt={name} className="mt-6 h-20 w-20 rounded-2xl border border-slate-200 bg-white object-cover shadow-sm"/>}
+        <h1 className="mt-5 text-4xl font-bold tracking-tight text-slate-950 md:text-5xl">{name}</h1>
+        {creatorSettings.author_job_title&&<p className="mt-2 text-sm font-medium text-teal-700">{creatorSettings.author_job_title}</p>}
+        <p className="mt-5 max-w-3xl text-lg leading-8 text-slate-600">{bio}</p>
+        {(creatorSettings.author_url||links.length>0)&&<div className="mt-6 flex flex-wrap gap-2">
+          {creatorSettings.author_url&&<a href={creatorSettings.author_url} target="_blank" rel="noreferrer" className="rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-medium text-white">Creator profile ↗</a>}
+          {links.map((url:string)=><a key={url} href={url} target="_blank" rel="noreferrer" className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-600 hover:border-slate-300 hover:text-slate-950">{new URL(url).hostname.replace(/^www\./,"")} ↗</a>)}
+        </div>}
+      </section>
+      <section className="mt-12 sm:mt-14">
+        <div className="max-w-3xl"><Meta><span>About the lab</span></Meta><h2 className="mt-3 text-2xl font-semibold tracking-tight text-slate-950 md:text-3xl">What happens here</h2><div className="mt-6 space-y-5 text-base leading-7 text-slate-600"><p>Vijevira Labs is an independent engineering lab for building, researching, documenting, and sharing practical software systems.</p><p>Content connects tools, technologies, projects, experiments, and production lessons so technical knowledge stays useful beyond a single post.</p></div></div>
+        <div className="mt-10 grid gap-4 md:grid-cols-3">
+          <div className="rounded-2xl border border-slate-200 bg-white p-5"><div className="text-xs font-semibold uppercase tracking-[0.14em] text-teal-700">Build</div><h3 className="mt-3 font-semibold text-slate-950">Projects & implementation</h3><p className="mt-2 text-sm leading-6 text-slate-600">Projects and implementation notes from systems being built and tested.</p></div>
+          <div className="rounded-2xl border border-slate-200 bg-white p-5"><div className="text-xs font-semibold uppercase tracking-[0.14em] text-teal-700">Investigate</div><h3 className="mt-3 font-semibold text-slate-950">Research & experiments</h3><p className="mt-2 text-sm leading-6 text-slate-600">Technical questions, experiments, trade-offs, and findings.</p></div>
+          <div className="rounded-2xl border border-slate-200 bg-white p-5"><div className="text-xs font-semibold uppercase tracking-[0.14em] text-teal-700">Document</div><h3 className="mt-3 font-semibold text-slate-950">Durable engineering notes</h3><p className="mt-2 text-sm leading-6 text-slate-600">Articles designed to remain useful after the original problem is solved.</p></div>
+        </div>
+      </section>
+    </main>
+  </>);
+}
 function TaxonomyPublic({slug}:{slug:string}){
   const [c,setC]=useState<any>(null),[posts,setPosts]=useState<any[]>([]);
   useEffect(()=>{apiFetch("/api/taxonomy/categories").then((rows:any[])=>{const row=rows.find((x:any)=>x.slug===slug);if(!row){setC(false);return}setC(row);return apiFetch("/api/posts?status=published&limit=100&category_id="+encodeURIComponent(row.id)).then(setPosts)}).catch(()=>setC(false))},[slug]);
