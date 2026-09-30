@@ -7,6 +7,7 @@ type RootSeo = {
   description?: string;
   canonical?: string;
   robots?: string;
+  author?: string;
   ogType?: string;
   image?: string;
   imageAlt?: string;
@@ -29,7 +30,7 @@ export function Root(seo: RootSeo = {}) {
           <meta charSet="UTF-8" />
           <meta name="viewport" content="width=device-width, initial-scale=1.0" />
           <meta name="description" content={description} />
-          <meta name="author" content="Vijevira Labs" />
+          <meta name="author" content={seo.author||"Vijevira Labs"} />
           <meta name="robots" content={robots} />
           <meta property="og:site_name" content="Vijevira Labs" />
           <meta property="og:locale" content="en_IN" />
