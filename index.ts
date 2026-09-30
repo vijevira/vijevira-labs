@@ -40,16 +40,25 @@ function schemaDate(value:unknown){
   return Number.isNaN(d.getTime())?undefined:d.toISOString();
 }
 
-function authorLd(origin:string){
-  return {
-    "@type":"Organization",
-    "@id":origin+"/about#organization",
-    name:SITE_NAME,
-    url:origin+"/about"
-  };
+function creatorLd(origin:string,settings:any={}){
+  const type=String(settings.author_type||"Organization")==="Person"?"Person":"Organization";
+  const name=String(settings.author_name||SITE_NAME).trim()||SITE_NAME;
+  const url=String(settings.author_url||"").trim()||origin+"/about";
+  const bio=String(settings.author_bio||"").trim();
+  const sameAs=String(settings.author_same_as||"").split(/[\n,]+/).map((x:string)=>x.trim()).filter((x:string)=>/^https?:\/\//i.test(x));
+  const data:any={"@type":type,"@id":origin+"/about#creator","name":name,"url":url};
+  if(bio)data.description=bio;
+  if(sameAs.length)data.sameAs=[...new Set(sameAs)];
+  if(String(settings.author_image||"").trim())data.image=String(settings.author_image).trim();
+  if(type==="Person"&&String(settings.author_job_title||"").trim())data.jobTitle=String(settings.author_job_title).trim();
+  return data;
 }
 
-function articleLd(origin:string,row:any,path:string,image?:string){
+function publisherLd(origin:string){
+  return {"@type":"Organization","@id":origin+"/about#organization",name:SITE_NAME,url:origin+"/about"};
+}
+
+function articleLd(origin:string,row:any,path:string,image?:string,creator?:any){
   const data:any={
     "@type":"BlogPosting",
     headline:row.title,
@@ -57,8 +66,8 @@ function articleLd(origin:string,row:any,path:string,image?:string){
     datePublished:schemaDate(row.published_at),
     dateModified:schemaDate(row.updated_at||row.published_at),
     mainEntityOfPage:{"@type":"WebPage","@id":origin+path},
-    author:authorLd(origin),
-    publisher:authorLd(origin),
+    author:creator||creatorLd(origin),
+    publisher:publisherLd(origin),
     url:origin+path,
     inLanguage:"en"
   };
@@ -116,6 +125,11 @@ async function resolveSeo(c:any){
   const url=new URL(c.req.url);
   const origin=url.origin;
   const path=url.pathname.replace(/\/+$/,"")||"/";
+  const settingsRows=await sqlite.execute("SELECT key,value FROM settings");
+  const publicSettings:any={};
+  for(const row of settingsRows.rows as any[])publicSettings[row.key]=row.value;
+  const creator=creatorLd(origin,publicSettings);
+
   const seo:any={
     title:DEFAULT_TITLE,
     description:DEFAULT_DESCRIPTION,
@@ -123,6 +137,7 @@ async function resolveSeo(c:any){
     robots:"index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1",
     ogType:"website"
   };
+  seo.author=creator.name;
 
   if(path==="/"){
     seo.title=DEFAULT_TITLE;
@@ -137,12 +152,7 @@ async function resolveSeo(c:any){
           description:DEFAULT_DESCRIPTION,
           inLanguage:"en"
         },
-        {
-          "@type":"Organization",
-          "@id":origin+"/about#organization",
-          name:SITE_NAME,
-          url:origin+"/about"
-        }
+        {...publisherLd(origin),...(creator["@type"]==="Organization"?{description:creator.description,sameAs:creator.sameAs,image:creator.image}:{})}
       ]
     };
     return seo;
@@ -177,8 +187,8 @@ async function resolveSeo(c:any){
   }
 
   if(path==="/about"){
-    seo.title="About Vijevira Labs — Engineering, Research & Building";
-    seo.description="Vijevira Labs is an independent engineering lab for building, researching, and documenting practical software systems.";
+    seo.title="About "+creator.name+" — Vijevira Labs";
+    seo.description=creator.description||"Vijevira Labs is an independent engineering lab for building, researching, and documenting practical software systems.";
     seo.jsonLd={
       "@context":"https://schema.org",
       "@graph":[
@@ -186,10 +196,10 @@ async function resolveSeo(c:any){
         {
           "@type":"ProfilePage",
           "@id":origin+"/about#profile",
-          name:"About Vijevira Labs",
+          name:creator.name+" — Creator Profile",
           description:seo.description,
           url:origin+"/about",
-          mainEntity:authorLd(origin)
+          mainEntity:creator
         }
       ]
     };
@@ -229,7 +239,7 @@ async function resolveSeo(c:any){
       seo.jsonLd={
         "@context":"https://schema.org",
         "@graph":[
-          articleLd(origin,row,path,row.secure_url||undefined),
+          articleLd(origin,row,path,row.secure_url||undefined,creator),
           breadcrumbLd(origin,[{name:"Home",path:"/"},{name:"Blog",path:"/blog"},{name:row.title,path}])
         ]
       };
@@ -300,7 +310,7 @@ async function resolveSeo(c:any){
       seo.jsonLd={
         "@context":"https://schema.org",
         "@graph":[
-          articleLd(origin,{...row,title:row.title},path),
+          articleLd(origin,{...row,title:row.title},path,undefined,creator),
           breadcrumbLd(origin,[{name:"Home",path:"/"},{name:"Research",path:"/research"},{name:row.title,path}])
         ]
       };
