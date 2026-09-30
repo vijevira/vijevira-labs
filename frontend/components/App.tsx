@@ -1407,7 +1407,7 @@ function AboutPublic(){
     {"@type":"AboutPage","name":"About Vijevira Labs","description":"About Vijevira Labs and its public creator profile.","url":SITE_ORIGIN+"/about","mainEntity":{"@id":SITE_ORIGIN+"/about#creator"}},
     {"@type":"ProfilePage","@id":SITE_ORIGIN+"/about#profile","name":name+" — Creator Profile","description":bio,"url":SITE_ORIGIN+"/about",mainEntity:creator}
   ]};
-  return siteShell(<><Seo title={"About "+name+" — Vijevira Labs"} description={bio} path="/about" type="AboutPage" jsonLd={aboutLd}/>
+  return siteShell(<><Seo title={name==="Vijevira Labs"?"About Vijevira Labs — Engineering, Research & Building":"About "+name+" — Vijevira Labs"} description={bio} path="/about" type="AboutPage" jsonLd={aboutLd}/>
     <main className="max-w-4xl mx-auto px-4 sm:px-5 py-12 sm:py-16 md:py-20">
       <section className="rounded-3xl border border-slate-200 bg-slate-50/70 p-6 sm:p-8 md:p-10">
         <Meta><span>Creator profile</span><span>·</span><span>{type}</span></Meta>
