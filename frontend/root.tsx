@@ -8,6 +8,8 @@ type RootSeo = {
   canonical?: string;
   robots?: string;
   author?: string;
+  gaMeasurementId?: string;
+  googleSiteVerification?: string;
   ogType?: string;
   image?: string;
   imageAlt?: string;
@@ -31,6 +33,7 @@ export function Root(seo: RootSeo = {}) {
           <meta name="viewport" content="width=device-width, initial-scale=1.0" />
           <meta name="description" content={description} />
           <meta name="author" content={seo.author||"Vijevira Labs"} />
+          {seo.googleSiteVerification&&<meta name="google-site-verification" content={seo.googleSiteVerification} />}
           <meta name="robots" content={robots} />
           <meta property="og:site_name" content="Vijevira Labs" />
           <meta property="og:locale" content="en_IN" />
@@ -48,6 +51,10 @@ export function Root(seo: RootSeo = {}) {
           {seo.image&&<meta name="twitter:image" content={seo.image} />}
           {seo.image&&seo.imageAlt&&<meta name="twitter:image:alt" content={seo.imageAlt} />}
           <meta name="theme-color" content="#ffffff" />
+          {seo.gaMeasurementId&&<>
+            <script async src={"https://www.googletagmanager.com/gtag/js?id="+seo.gaMeasurementId}></script>
+            <script>{raw("(function(){window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}window.gtag=gtag;gtag('js',new Date());gtag('config','"+seo.gaMeasurementId+"',{page_location:window.location.origin+window.location.pathname});})();")}</script>
+          </>}
           <title>{title}</title>
           {canonical&&<link rel="canonical" href={canonical} />}
           <link rel="alternate" type="application/rss+xml" title="Vijevira Labs RSS" href={(canonical?new URL("/rss.xml",canonical).href:"/rss.xml")} />
