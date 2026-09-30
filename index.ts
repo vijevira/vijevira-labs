@@ -187,7 +187,7 @@ async function resolveSeo(c:any){
   }
 
   if(path==="/about"){
-    seo.title="About "+creator.name+" — Vijevira Labs";
+    seo.title=creator.name===SITE_NAME?"About Vijevira Labs — Engineering, Research & Building":"About "+creator.name+" — Vijevira Labs";
     seo.description=creator.description||"Vijevira Labs is an independent engineering lab for building, researching, and documenting practical software systems.";
     seo.jsonLd={
       "@context":"https://schema.org",
