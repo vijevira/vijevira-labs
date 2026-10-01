@@ -19,6 +19,8 @@ const schema = [
   `CREATE TABLE IF NOT EXISTS projects (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE, slug TEXT NOT NULL UNIQUE, description TEXT, content TEXT NOT NULL DEFAULT '', status TEXT NOT NULL DEFAULT 'building', repository_url TEXT, demo_url TEXT, cover_image_id INTEGER REFERENCES media(id) ON DELETE SET NULL, featured INTEGER NOT NULL DEFAULT 0 CHECK (featured IN (0,1)), created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
   `CREATE TABLE IF NOT EXISTS post_projects (post_id INTEGER NOT NULL REFERENCES posts(id) ON DELETE CASCADE, project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE, PRIMARY KEY (post_id, project_id))`,
   `CREATE TABLE IF NOT EXISTS related_posts (post_id INTEGER NOT NULL REFERENCES posts(id) ON DELETE CASCADE, related_post_id INTEGER NOT NULL REFERENCES posts(id) ON DELETE CASCADE, PRIMARY KEY (post_id, related_post_id), CHECK (post_id != related_post_id))`,
+  `CREATE TABLE IF NOT EXISTS topic_clusters (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE, slug TEXT NOT NULL UNIQUE, description TEXT NOT NULL, intro TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
+  `CREATE TABLE IF NOT EXISTS topic_cluster_items (cluster_id INTEGER NOT NULL REFERENCES topic_clusters(id) ON DELETE CASCADE, item_type TEXT NOT NULL CHECK (item_type IN ('post','project')), item_id INTEGER NOT NULL, role TEXT NOT NULL DEFAULT 'supporting' CHECK (role IN ('pillar','supporting')), position INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (cluster_id, item_type, item_id))`,
   `CREATE TABLE IF NOT EXISTS research_notes (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, slug TEXT NOT NULL UNIQUE, content TEXT NOT NULL DEFAULT '', status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','completed','converted','archived')), related_post_id INTEGER REFERENCES posts(id) ON DELETE SET NULL, related_project_id INTEGER REFERENCES projects(id) ON DELETE SET NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
   `INSERT OR IGNORE INTO post_categories (post_id, category_id) SELECT id, category_id FROM posts WHERE category_id IS NOT NULL`,
   `CREATE INDEX IF NOT EXISTS idx_post_categories_category_id ON post_categories(category_id)`,
@@ -31,6 +33,7 @@ const schema = [
   `CREATE INDEX IF NOT EXISTS idx_tools_slug ON tools(slug)`,
   `CREATE INDEX IF NOT EXISTS idx_projects_slug ON projects(slug)`,
   `CREATE INDEX IF NOT EXISTS idx_research_notes_status ON research_notes(status)`,
+  `CREATE INDEX IF NOT EXISTS idx_topic_cluster_items_cluster ON topic_cluster_items(cluster_id, position)`,
   `INSERT OR IGNORE INTO categories (name, slug, description) VALUES ('Engineering','engineering','Production engineering, software development, and practical systems work.')`,
   `INSERT OR IGNORE INTO categories (name, slug, description) VALUES ('Research','research','Technical research, experiments, and evidence-driven exploration.')`,
   `INSERT OR IGNORE INTO categories (name, slug, description) VALUES ('Tutorials','tutorials','Step-by-step guides for building and shipping software.')`,
@@ -38,6 +41,10 @@ const schema = [
   `INSERT OR IGNORE INTO categories (name, slug, description) VALUES ('AI','ai','AI engineering, LLMs, agents, and applied machine intelligence.')`,
   `INSERT OR IGNORE INTO categories (name, slug, description) VALUES ('Architecture','architecture','System design, architecture patterns, and engineering trade-offs.')`,
   `INSERT OR IGNORE INTO categories (name, slug, description) VALUES ('Free Tools','free-tools','Free and low-cost developer tools, platforms, and services.')`,
+  `INSERT OR IGNORE INTO topic_clusters (name, slug, description, intro) VALUES ('Cron & Scheduling','cron-scheduling','Scheduling, retries, idempotency, time semantics, and operating recurring jobs.','A connected path through the practical problems behind reliable scheduled work—from cron expressions to overlap control, retries, observability, and local-time presentation.')`,
+  `INSERT OR IGNORE INTO topic_clusters (name, slug, description, intro) VALUES ('SQLite & Small SaaS','sqlite-small-saas','SQLite boundaries, small-application architecture, and pragmatic production infrastructure.','A practical cluster about keeping small applications simple: choosing SQLite deliberately, recognizing workload boundaries, and avoiding infrastructure before the workload requires it.')`,
+  `INSERT OR IGNORE INTO topic_clusters (name, slug, description, intro) VALUES ('DNS & Web Infrastructure','dns-web-infrastructure','DNS, domain namespaces, networking, and the infrastructure layers behind the web.','Start with how domain names resolve, then follow the deeper infrastructure questions around public roots, alternative namespaces, and safe experimentation.')`,
+  `INSERT OR IGNORE INTO topic_clusters (name, slug, description, intro) VALUES ('AI-Assisted Engineering','ai-assisted-engineering','Using AI coding systems as engineering tools without replacing verification and judgment.','A focused path for using coding models to investigate, implement, and verify software changes while keeping evidence and engineering judgment in control.')`,
   `INSERT OR IGNORE INTO tags (name, slug) VALUES ('Val Town','val-town')`,
   `INSERT OR IGNORE INTO tags (name, slug) VALUES ('ChatGPT','chatgpt')`,
   `INSERT OR IGNORE INTO tags (name, slug) VALUES ('AI Coding','ai-coding')`,
@@ -73,6 +80,17 @@ async function migrateDatabase() {
   }
 
   await sqlite.execute("UPDATE media SET secure_url = url WHERE secure_url IS NULL OR secure_url = ''");
+  await sqlite.execute("INSERT OR IGNORE INTO topic_cluster_items (cluster_id,item_type,item_id,role,position) SELECT c.id,'post',p.id,'pillar',1 FROM topic_clusters c JOIN posts p ON p.slug='crondeck-a-developer-friendly-way-to-schedule-monitor-and-understand-cron-jobs' WHERE c.slug='cron-scheduling'");
+  await sqlite.execute("INSERT OR IGNORE INTO topic_cluster_items (cluster_id,item_type,item_id,role,position) SELECT c.id,'post',p.id,'supporting',2 FROM topic_clusters c JOIN posts p ON p.slug='designing-reliable-scheduled-jobs-retries-idempotency-and-observability' WHERE c.slug='cron-scheduling'");
+  await sqlite.execute("INSERT OR IGNORE INTO topic_cluster_items (cluster_id,item_type,item_id,role,position) SELECT c.id,'post',p.id,'supporting',3 FROM topic_clusters c JOIN posts p ON p.slug='what-changes-when-a-cron-job-runs-every-minute' WHERE c.slug='cron-scheduling'");
+  await sqlite.execute("INSERT OR IGNORE INTO topic_cluster_items (cluster_id,item_type,item_id,role,position) SELECT c.id,'post',p.id,'supporting',4 FROM topic_clusters c JOIN posts p ON p.slug='utc-in-the-backend-local-time-in-the-browser' WHERE c.slug='cron-scheduling'");
+  await sqlite.execute("INSERT OR IGNORE INTO topic_cluster_items (cluster_id,item_type,item_id,role,position) SELECT c.id,'project',p.id,'pillar',5 FROM topic_clusters c JOIN projects p ON p.slug='crondeck' WHERE c.slug='cron-scheduling'");
+  await sqlite.execute("INSERT OR IGNORE INTO topic_cluster_items (cluster_id,item_type,item_id,role,position) SELECT c.id,'post',p.id,'pillar',1 FROM topic_clusters c JOIN posts p ON p.slug='sqlite-in-production-a-practical-boundary-setting-guide' WHERE c.slug='sqlite-small-saas'");
+  await sqlite.execute("INSERT OR IGNORE INTO topic_cluster_items (cluster_id,item_type,item_id,role,position) SELECT c.id,'post',p.id,'supporting',2 FROM topic_clusters c JOIN posts p ON p.slug='can-sqlite-carry-a-small-saas' WHERE c.slug='sqlite-small-saas'");
+  await sqlite.execute("INSERT OR IGNORE INTO topic_cluster_items (cluster_id,item_type,item_id,role,position) SELECT c.id,'post',p.id,'supporting',3 FROM topic_clusters c JOIN posts p ON p.slug='the-small-app-architecture-when-less-infrastructure-is-more' WHERE c.slug='sqlite-small-saas'");
+  await sqlite.execute("INSERT OR IGNORE INTO topic_cluster_items (cluster_id,item_type,item_id,role,position) SELECT c.id,'post',p.id,'pillar',1 FROM topic_clusters c JOIN posts p ON p.slug='how-custom-domain-extensions-work-dns-icann-and-alternative-roots' WHERE c.slug='dns-web-infrastructure'");
+  await sqlite.execute("INSERT OR IGNORE INTO topic_cluster_items (cluster_id,item_type,item_id,role,position) SELECT c.id,'post',p.id,'pillar',1 FROM topic_clusters c JOIN posts p ON p.slug='ai-assisted-debugging-a-workflow-that-keeps-the-engineer-in-control' WHERE c.slug='ai-assisted-engineering'");
+  await sqlite.execute("INSERT OR IGNORE INTO topic_cluster_items (cluster_id,item_type,item_id,role,position) SELECT c.id,'post',p.id,'supporting',2 FROM topic_clusters c JOIN posts p ON p.slug='val-town-chatgpt-first-app' WHERE c.slug='ai-assisted-engineering'");
 }
 
 export function initDatabase(): Promise<void> {
