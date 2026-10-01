@@ -95,13 +95,14 @@ app.get("/sitemap.xml", async (c) => {
   await initDatabase();
   const origin = new URL(c.req.url).origin;
   const urls = new Set<string>(["/","/blog","/research","/tools","/projects","/about"]);
-  const [posts,toolsRows,projectRows,researchRows,categories,tags] = await Promise.all([
+  const [posts,toolsRows,projectRows,researchRows,categories,tags,clusters] = await Promise.all([
     sqlite.execute("SELECT slug,updated_at FROM posts WHERE status='published' AND content_type!='research'"),
     sqlite.execute("SELECT slug,updated_at FROM tools"),
     sqlite.execute("SELECT slug,updated_at FROM projects"),
     sqlite.execute("SELECT id,updated_at FROM posts WHERE status='published' AND content_type='research'"),
     sqlite.execute("SELECT c.slug,c.updated_at FROM categories c WHERE EXISTS (SELECT 1 FROM post_categories pc JOIN posts p ON p.id=pc.post_id WHERE pc.category_id=c.id AND p.status='published')"),
-    sqlite.execute("SELECT t.slug FROM tags t WHERE EXISTS (SELECT 1 FROM post_tags pt JOIN posts p ON p.id=pt.post_id WHERE pt.tag_id=t.id AND p.status='published')")
+    sqlite.execute("SELECT t.slug FROM tags t WHERE EXISTS (SELECT 1 FROM post_tags pt JOIN posts p ON p.id=pt.post_id WHERE pt.tag_id=t.id AND p.status='published')"),
+    sqlite.execute("SELECT slug,updated_at FROM topic_clusters ORDER BY name")
   ]);
   for(const p of posts.rows as any[]) urls.add("/blog/"+encodeURIComponent(p.slug));
   for(const x of toolsRows.rows as any[]) urls.add("/tools/"+encodeURIComponent(x.slug));
@@ -109,6 +110,7 @@ app.get("/sitemap.xml", async (c) => {
   for(const x of researchRows.rows as any[]) urls.add("/research/"+encodeURIComponent(String(x.id)));
   for(const x of categories.rows as any[]) urls.add("/topics/"+encodeURIComponent(x.slug));
   for(const x of tags.rows as any[]) urls.add("/tags/"+encodeURIComponent(x.slug));
+  for(const x of clusters.rows as any[]) urls.add("/topics/"+encodeURIComponent(x.slug));
 
   const lastByPath = new Map<string,string>();
   for(const p of posts.rows as any[]) lastByPath.set("/blog/"+encodeURIComponent(p.slug),p.updated_at);
@@ -116,6 +118,7 @@ app.get("/sitemap.xml", async (c) => {
   for(const x of projectRows.rows as any[]) lastByPath.set("/projects/"+encodeURIComponent(x.slug),x.updated_at);
   for(const x of researchRows.rows as any[]) lastByPath.set("/research/"+encodeURIComponent(String(x.id)),x.updated_at);
   for(const x of categories.rows as any[]) lastByPath.set("/topics/"+encodeURIComponent(x.slug),x.updated_at);
+  for(const x of clusters.rows as any[]) lastByPath.set("/topics/"+encodeURIComponent(x.slug),x.updated_at);
 
   const xml=[...urls].map(path=>"<url><loc>"+origin+path+"</loc>"+(lastByPath.get(path)?"<lastmod>"+new Date(lastByPath.get(path) as string).toISOString()+"</lastmod>":"")+"</url>").join("");
   return c.body('<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'+xml+"</urlset>",200,{"Content-Type":"application/xml; charset=UTF-8"});
@@ -324,6 +327,19 @@ async function resolveSeo(c:any){
 
   if(path.startsWith("/topics/")){
     const slug=decodeURIComponent(path.slice(8));
+    const cluster=(await sqlite.execute("SELECT name,description,slug,intro FROM topic_clusters WHERE slug=? LIMIT 1",[slug])).rows[0] as any;
+    if(cluster){
+      seo.title=String(cluster.name)+" — Vijevira Labs";
+      seo.description=String(cluster.description||cluster.intro||"Explore "+cluster.name+" at Vijevira Labs.");
+      seo.jsonLd={
+        "@context":"https://schema.org",
+        "@graph":[
+          pageLd(origin,cluster.name,seo.description,path,"CollectionPage"),
+          breadcrumbLd(origin,[{name:"Home",path:"/"},{name:"Topic hubs",path:"/blog"},{name:cluster.name,path}])
+        ]
+      };
+      return seo;
+    }
     const row=(await sqlite.execute("SELECT name,description,slug FROM categories WHERE slug=? LIMIT 1",[slug])).rows[0] as any;
     if(row){
       seo.title=String(row.name)+" — Vijevira Labs";
