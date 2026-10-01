@@ -32,6 +32,24 @@ router.put("/settings",requireAuth,async c=>{await initDatabase();const b=await 
 router.get("/tools",c=>listTable(c,"tools"));
 router.get("/projects",c=>listTable(c,"projects"));
 
+router.get("/clusters",async c=>{
+  await initDatabase();
+  const r=await sqlite.execute("SELECT id,name,slug,description,intro FROM topic_clusters ORDER BY name ASC");
+  return c.json({data:r.rows});
+});
+
+router.get("/clusters/:slug",async c=>{
+  await initDatabase();
+  const cluster=(await sqlite.execute("SELECT id,name,slug,description,intro FROM topic_clusters WHERE slug=? LIMIT 1",[c.req.param("slug")])).rows[0] as any;
+  if(!cluster)return err(c,404,"CLUSTER_NOT_FOUND","Topic cluster not found.");
+  const posts=await sqlite.execute("SELECT p.id,p.title,p.slug,p.description,p.content_type,p.published_at,p.reading_time,(SELECT GROUP_CONCAT(c.name, ', ') FROM categories c JOIN post_categories pc ON pc.category_id=c.id WHERE pc.post_id=p.id) AS category_name,i.role,i.position FROM topic_cluster_items i JOIN posts p ON p.id=i.item_id WHERE i.cluster_id=? AND i.item_type='post' AND p.status='published' ORDER BY CASE WHEN i.role='pillar' THEN 0 ELSE 1 END,i.position,p.published_at DESC",[cluster.id]);
+  const projects=await sqlite.execute("SELECT p.id,p.name,p.slug,p.description,p.status,p.featured,i.role,i.position FROM topic_cluster_items i JOIN projects p ON p.id=i.item_id WHERE i.cluster_id=? AND i.item_type='project' ORDER BY CASE WHEN i.role='pillar' THEN 0 ELSE 1 END,i.position,p.name",[cluster.id]);
+  const tags=await sqlite.execute("SELECT t.id,t.name,t.slug,COUNT(DISTINCT p.id) AS post_count FROM tags t JOIN post_tags pt ON pt.tag_id=t.id JOIN posts p ON p.id=pt.post_id JOIN topic_cluster_items i ON i.item_id=p.id AND i.item_type='post' AND i.cluster_id=? WHERE p.status='published' GROUP BY t.id,t.name,t.slug ORDER BY post_count DESC,t.name ASC LIMIT 8",[cluster.id]);
+  const technologies=await sqlite.execute("SELECT t.id,t.name,t.slug,COUNT(DISTINCT p.id) AS post_count FROM technologies t JOIN post_technologies pt ON pt.technology_id=t.id JOIN posts p ON p.id=pt.post_id JOIN topic_cluster_items i ON i.item_id=p.id AND i.item_type='post' AND i.cluster_id=? WHERE p.status='published' GROUP BY t.id,t.name,t.slug ORDER BY post_count DESC,t.name ASC LIMIT 8",[cluster.id]);
+  const related=await sqlite.execute("SELECT id,name,slug,description FROM topic_clusters WHERE id<>? ORDER BY name",[cluster.id]);
+  return c.json({data:{...cluster,posts:posts.rows,projects:projects.rows,tags:tags.rows,technologies:technologies.rows,related_clusters:related.rows}});
+});
+
 router.get("/tools/:id",async c=>{
   await initDatabase(); const row=await getTable("tools",Number(c.req.param("id")));
   return row?c.json({data:row}):err(c,404,"TOOL_NOT_FOUND","Tool not found.");
