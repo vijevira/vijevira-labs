@@ -1126,8 +1126,14 @@ function HomePublic(){
   </>);
 }
 function BlogPublic(){
-  const [rows,setRows]=useState<any[]>([]),[filter,setFilter]=useState("All"),[query,setQuery]=useState(""),[loading,setLoading]=useState(true),[failed,setFailed]=useState(false);
-  useEffect(()=>{setLoading(true);apiFetch("/api/posts?status=published&limit=100").then(setRows).catch(()=>setFailed(true)).finally(()=>setLoading(false))},[]);
+  const [rows,setRows]=useState<any[]>([]),[clusters,setClusters]=useState<any[]>([]),[filter,setFilter]=useState("All"),[query,setQuery]=useState(""),[loading,setLoading]=useState(true),[failed,setFailed]=useState(false);
+  useEffect(()=>{
+    setLoading(true);
+    Promise.all([
+      apiFetch("/api/posts?status=published&limit=100"),
+      apiFetch("/api/content/clusters")
+    ]).then(([posts,topicHubs])=>{setRows(posts);setClusters(topicHubs)}).catch(()=>setFailed(true)).finally(()=>setLoading(false));
+  },[]);
   const categories=["All",...Array.from(new Set(rows.map(x=>x.category_name).filter(Boolean)))];
   const filtered=rows.filter(x=>{const filterOk=filter==="All"||x.category_name===filter;const haystack=String(x.title||"")+" "+String(x.description||"")+" "+String(x.category_name||"");return filterOk&&(!query.trim()||haystack.toLowerCase().includes(query.trim().toLowerCase()))});
   return siteShell(<main className="max-w-6xl mx-auto px-4 sm:px-5 py-10 sm:py-14 md:py-20">
@@ -1136,6 +1142,7 @@ function BlogPublic(){
       <h1 className="mt-3 text-4xl font-bold tracking-tight text-slate-950 md:text-5xl">Blog</h1>
       <p className="mt-3 text-lg leading-7 text-slate-600">Engineering articles, tutorials, guides, comparisons, and build notes.</p>
     </div>
+    {!loading&&!failed&&clusters.length>0&&<section className="mt-10 rounded-3xl border border-slate-200 bg-slate-50/70 p-5 sm:p-6"><div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between"><div><Meta><span>Topic hubs</span></Meta><h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">Follow a connected subject</h2><p className="mt-1 text-sm leading-6 text-slate-600">Start with a pillar article, then move through related implementation notes and projects.</p></div><a href="/search" className="text-sm font-medium text-teal-700 hover:text-teal-800">Search the lab →</a></div><div className="mt-5 grid gap-3 md:grid-cols-2">{clusters.map((x:any)=><a key={x.id} href={"/topics/"+x.slug} className="group rounded-2xl border border-slate-200 bg-white p-5 transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md"><h3 className="font-semibold text-slate-950 group-hover:text-teal-800">{x.name}</h3><p className="mt-2 text-sm leading-6 text-slate-600">{x.description}</p><span className="mt-4 inline-block text-sm font-medium text-slate-500">Explore hub →</span></a>)}</div></section>}
     {!loading&&!failed&&rows.length>0&&<div className="mt-8 flex flex-col gap-3"><label className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50/70 px-3 py-2 shadow-sm focus-within:border-slate-400 focus-within:bg-white"><svg viewBox="0 0 24 24" aria-hidden="true" className="h-4 w-4 shrink-0 text-slate-400" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4 4"/></svg><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search articles, topics, or technologies…" aria-label="Search blog" className="min-w-0 flex-1 bg-transparent py-2 text-sm outline-none placeholder:text-slate-400"/></label><div className="flex gap-2 overflow-x-auto pb-1">{categories.map(c=><button key={c} type="button" aria-pressed={filter===c} onClick={()=>setFilter(c)} className={`shrink-0 rounded-full border px-3.5 py-1.5 text-sm transition ${filter===c?"border-slate-950 bg-slate-950 text-white":"border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-950"}`}>{c}</button>)}</div></div>}
     {failed&&<div className="mt-8"><EmptyState title="Could not load articles." description="Please refresh the page and try again." /></div>}
     {loading&&<div className="mt-8 space-y-3">{[1,2,3].map(i=><div key={i} className="h-36 animate-pulse rounded-2xl border border-slate-200 bg-slate-50"/>)}</div>}
@@ -1434,14 +1441,38 @@ function AboutPublic(){
     </main>
   </>);
 }
-function TaxonomyPublic({slug}:{slug:string}){
-  const [c,setC]=useState<any>(null),[posts,setPosts]=useState<any[]>([]);
-  useEffect(()=>{apiFetch("/api/taxonomy/categories").then((rows:any[])=>{const row=rows.find((x:any)=>x.slug===slug);if(!row){setC(false);return}setC(row);return apiFetch("/api/posts?status=published&limit=100&category_id="+encodeURIComponent(row.id)).then(setPosts)}).catch(()=>setC(false))},[slug]);
-  if(c===false)return siteShell(<main className="max-w-3xl mx-auto px-5 py-24"><EmptyState title="Topic not found" /></main>);
-  if(!c)return siteShell(<main className="max-w-3xl mx-auto px-5 py-24 text-sm text-slate-500">Loading topic…</main>);
-  return siteShell(<><Seo title={c.name+" — Vijevira Labs"} description={c.description||("Articles about "+c.name+" from Vijevira Labs.")} path={"/topics/"+c.slug} type="CollectionPage"/><main className="max-w-5xl mx-auto px-5 py-14 md:py-20">
-    <div className="max-w-3xl"><Meta><span>Topic</span></Meta><h1 className="mt-3 text-4xl font-bold tracking-tight text-slate-950 md:text-5xl">{c.name}</h1>{c.description&&<p className="mt-3 text-lg leading-7 text-slate-600">{c.description}</p>}</div>
-    {posts.length>0?<div className="mt-9 space-y-5">{posts.map(x=><PostCard key={x.id} post={x}/>)}</div>:<div className="mt-9"><EmptyState title="No published articles in this topic yet." /></div>}
+function TopicPublic({slug}:{slug:string}){
+  const [cluster,setCluster]=useState<any>(null),[category,setCategory]=useState<any>(null),[posts,setPosts]=useState<any[]>([]),[loading,setLoading]=useState(true);
+  useEffect(()=>{
+    setLoading(true);setCluster(null);setCategory(null);setPosts([]);
+    apiFetch("/api/content/clusters/"+encodeURIComponent(slug))
+      .then(setCluster)
+      .catch(()=>apiFetch("/api/taxonomy/categories").then((rows:any[])=>{
+        const row=rows.find((x:any)=>x.slug===slug);
+        if(!row)throw new Error("not-found");
+        setCategory(row);
+        return apiFetch("/api/posts?status=published&limit=100&category_id="+encodeURIComponent(row.id)).then(setPosts);
+      }))
+      .catch(()=>{setCluster(false);setCategory(false)})
+      .finally(()=>setLoading(false));
+  },[slug]);
+  if(loading)return siteShell(<main className="max-w-5xl mx-auto px-5 py-24 text-sm text-slate-500">Loading topic…</main>);
+  if(cluster===false&&category===false)return siteShell(<main className="max-w-3xl mx-auto px-5 py-24"><EmptyState title="Topic not found" /></main>);
+  if(category){
+    return siteShell(<><Seo title={category.name+" — Vijevira Labs"} description={category.description||("Articles about "+category.name+" from Vijevira Labs.")} path={"/topics/"+category.slug} type="CollectionPage"/><main className="max-w-5xl mx-auto px-5 py-14 md:py-20">
+      <div className="max-w-3xl"><Meta><span>Topic</span></Meta><h1 className="mt-3 text-4xl font-bold tracking-tight text-slate-950 md:text-5xl">{category.name}</h1>{category.description&&<p className="mt-3 text-lg leading-7 text-slate-600">{category.description}</p>}</div>
+      {posts.length>0?<div className="mt-9 space-y-5">{posts.map(x=><PostCard key={x.id} post={x}/>)}</div>:<div className="mt-9"><EmptyState title="No published articles in this topic yet." /></div>}
+    </main></>);
+  }
+  const pillars=(cluster?.posts||[]).filter((x:any)=>x.role==="pillar"),supporting=(cluster?.posts||[]).filter((x:any)=>x.role!=="pillar");
+  return siteShell(<><Seo title={cluster.name+" — Vijevira Labs"} description={cluster.description||cluster.intro||""} path={"/topics/"+cluster.slug} type="CollectionPage"/><main className="max-w-6xl mx-auto px-4 sm:px-5 py-10 sm:py-14 md:py-20">
+    <div className="max-w-3xl"><Meta><span>Topic hub</span><span>·</span><span>{(cluster.posts||[]).length} articles</span></Meta><h1 className="mt-3 text-4xl font-bold tracking-tight text-slate-950 md:text-5xl">{cluster.name}</h1><p className="mt-4 text-lg leading-8 text-slate-600">{cluster.intro||cluster.description}</p></div>
+    {pillars.length>0&&<section className="mt-10"><Meta><span>Pillar reading</span></Meta><div className="mt-4 grid gap-5 lg:grid-cols-2">{pillars.map((p:any)=><PostCard key={p.id} post={p} featured/>)}</div></section>}
+    {supporting.length>0&&<section className="mt-12"><SectionHeader eyebrow="Continue" title="Supporting articles" description="Follow the adjacent concepts and implementation details."/><div className="mt-6 space-y-5">{supporting.map((p:any)=><PostCard key={p.id} post={p}/>)}</div></section>}
+    {(cluster.projects||[]).length>0&&<section className="mt-12"><SectionHeader eyebrow="Built alongside the topic" title="Projects"/><div className="mt-6 grid gap-5 md:grid-cols-2">{cluster.projects.map((p:any)=><a key={p.id} href={"/projects/"+p.slug} className="group rounded-2xl border border-slate-200 bg-white p-6 transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md"><Meta><span>{p.status||"project"}</span></Meta><h2 className="mt-3 text-xl font-semibold text-slate-950 group-hover:text-teal-800">{p.name}</h2>{p.description&&<p className="mt-2 text-sm leading-6 text-slate-600">{p.description}</p>}<span className="mt-5 inline-block text-sm font-medium text-slate-500">View project →</span></a>)}</div></section>}
+    {(cluster.tags||[]).length>0&&<section className="mt-12"><Meta><span>Concepts in this cluster</span></Meta><div className="mt-4 flex flex-wrap gap-2">{cluster.tags.map((t:any)=><a key={t.id} href={"/tags/"+t.slug} className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-sm text-slate-600 hover:border-slate-300 hover:text-slate-950">{t.name}</a>)}</div></section>}
+    {(cluster.technologies||[]).length>0&&<section className="mt-9"><Meta><span>Technologies</span></Meta><div className="mt-4 flex flex-wrap gap-2">{cluster.technologies.map((t:any)=><span key={t.id} className="rounded-full border border-slate-200 px-3 py-1.5 text-sm text-slate-600">{t.name}</span>)}</div></section>}
+    {(cluster.related_clusters||[]).length>0&&<section className="mt-14 border-t border-slate-200 pt-10"><Meta><span>Related topic hubs</span></Meta><div className="mt-4 grid gap-3 sm:grid-cols-2">{cluster.related_clusters.map((x:any)=><a key={x.id} href={"/topics/"+x.slug} className="rounded-2xl border border-slate-200 bg-slate-50/70 p-5 hover:bg-white hover:border-slate-300"><h2 className="font-semibold text-slate-950">{x.name}</h2><p className="mt-1 text-sm leading-6 text-slate-600">{x.description}</p></a>)}</div></section>}
   </main></>);
 }
 
@@ -1481,6 +1512,6 @@ export function App(){
   if(path==="/search") return <SearchPublic/>;
   if(path==="/about") return <AboutPublic/>;
   if(path.startsWith("/tags/")) return <TagPublic slug={decodeURIComponent(path.slice(6))}/>;
-  if(path.startsWith("/topics/")) return <TaxonomyPublic slug={decodeURIComponent(path.slice(8))}/>;
+  if(path.startsWith("/topics/")) return <TopicPublic slug={decodeURIComponent(path.slice(8))}/>;
   return <div class="min-h-screen bg-white text-gray-900"><header class="border-b border-gray-200"><nav class="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between"><a href="/" class="font-semibold text-lg">Vijevira Labs</a><div class="flex items-center gap-6 text-sm text-gray-600"><a href="/blog">Blog</a><a href="/tools">Tools</a><a href="/projects">Projects</a><a href="/research">Research</a><a href="/about">About</a><a href="/admin/login">Admin</a></div></nav></header><main class="max-w-6xl mx-auto px-6 py-20"><p class="text-sm font-medium text-gray-500 mb-4">Engineering, Research &amp; Building.</p><h1 class="text-5xl font-bold tracking-tight mb-6">Vijevira Labs</h1><p class="max-w-2xl text-xl leading-8 text-gray-600">Practical engineering notes, research, production lessons, developer tools, and projects built with a focus on useful, real-world systems.</p></main></div>;
 }
