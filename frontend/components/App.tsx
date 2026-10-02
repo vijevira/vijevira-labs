@@ -1552,6 +1552,19 @@ function TopicPublic({slug}:{slug:string}){
   </main></>);
 }
 
+function NotFoundPublic(){
+  const path=window.location.pathname;
+  return siteShell(<><Seo title="Page not found — Vijevira Labs" description="The page you requested could not be found." path={path} robots="noindex,follow"/><main className="max-w-3xl mx-auto px-5 py-20 sm:py-24">
+    <Meta><span>404</span><span>·</span><span>Page not found</span></Meta>
+    <h1 className="mt-3 text-4xl font-bold tracking-tight text-slate-950 sm:text-5xl">That page doesn’t exist.</h1>
+    <p className="mt-4 max-w-2xl text-lg leading-8 text-slate-600">The address may be outdated, or the page may have moved. Use the links below to continue exploring Vijevira Labs.</p>
+    <div className="mt-8 flex flex-wrap gap-3">
+      <a href="/" className="rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-medium text-white">Go home</a>
+      <a href="/blog" className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 hover:border-slate-300 hover:text-slate-950">Browse articles</a>
+      <a href="/projects" className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 hover:border-slate-300 hover:text-slate-950">View projects</a>
+    </div>
+  </main></>);
+}
 function TagPublic({slug}:{slug:string}){
   const [data,setData]=useState<any>(null);
   useEffect(()=>{apiFetch("/api/taxonomy/tags/"+encodeURIComponent(slug)+"/posts").then(setData).catch(()=>setData(false))},[slug]);
@@ -1590,5 +1603,5 @@ export function App(){
   if(path==="/about") return <AboutPublic/>;
   if(path.startsWith("/tags/")) return <TagPublic slug={decodeURIComponent(path.slice(6))}/>;
   if(path.startsWith("/topics/")) return <TopicPublic slug={decodeURIComponent(path.slice(8))}/>;
-  return <div class="min-h-screen bg-white text-gray-900"><header class="border-b border-gray-200"><nav class="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between"><a href="/" class="font-semibold text-lg">Vijevira Labs</a><div class="flex items-center gap-6 text-sm text-gray-600"><a href="/blog">Blog</a><a href="/tools">Tools</a><a href="/projects">Projects</a><a href="/research">Research</a><a href="/about">About</a><a href="/admin/login">Admin</a></div></nav></header><main class="max-w-6xl mx-auto px-6 py-20"><p class="text-sm font-medium text-gray-500 mb-4">Engineering, Research &amp; Building.</p><h1 class="text-5xl font-bold tracking-tight mb-6">Vijevira Labs</h1><p class="max-w-2xl text-xl leading-8 text-gray-600">Practical engineering notes, research, production lessons, developer tools, and projects built with a focus on useful, real-world systems.</p></main></div>;
+  return <NotFoundPublic/>;
 }
