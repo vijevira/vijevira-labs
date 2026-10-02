@@ -38,6 +38,67 @@ router.get("/clusters",async c=>{
   return c.json({data:r.rows});
 });
 
+router.get("/posts/:id/clusters",async c=>{
+  await initDatabase();
+  const id=Number(c.req.param("id"));
+  const r=await sqlite.execute("SELECT tc.id,tc.name,tc.slug,tc.description,tci.role,tci.position FROM topic_cluster_items tci JOIN topic_clusters tc ON tc.id=tci.cluster_id WHERE tci.item_type='post' AND tci.item_id=? ORDER BY tci.position,tc.name",[id]);
+  return c.json({data:r.rows});
+});
+router.get("/projects/:id/clusters",async c=>{
+  await initDatabase();
+  const id=Number(c.req.param("id"));
+  const r=await sqlite.execute("SELECT tc.id,tc.name,tc.slug,tc.description,tci.role,tci.position FROM topic_cluster_items tci JOIN topic_clusters tc ON tc.id=tci.cluster_id WHERE tci.item_type='project' AND tci.item_id=? ORDER BY tci.position,tc.name",[id]);
+  return c.json({data:r.rows});
+});
+
+router.post("/clusters",requireAuth,async c=>{
+  await initDatabase();
+  const b=await c.req.json().catch(()=>({}));
+  const name=String(b.name||"").trim(),slug=slugify(String(b.slug||name)),description=String(b.description||"").trim(),intro=String(b.intro||"").trim();
+  if(!name||!slug||!description)return err(c,400,"INVALID_CLUSTER","Name, slug, and description are required.");
+  try{
+    const r=await sqlite.execute("INSERT INTO topic_clusters(name,slug,description,intro) VALUES(?,?,?,?)",[name,slug,description,intro||null]);
+    const id=Number(((await sqlite.execute("SELECT last_insert_rowid() AS id")).rows[0] as any)?.id);
+    return c.json({data:(await sqlite.execute("SELECT * FROM topic_clusters WHERE id=?",[id])).rows[0]},201);
+  }catch{return err(c,409,"CLUSTER_EXISTS","Cluster name or slug already exists.");}
+});
+
+router.put("/clusters/:id",requireAuth,async c=>{
+  await initDatabase();
+  const id=Number(c.req.param("id")),old=(await sqlite.execute("SELECT * FROM topic_clusters WHERE id=? LIMIT 1",[id])).rows[0] as any;
+  if(!old)return err(c,404,"CLUSTER_NOT_FOUND","Topic cluster not found.");
+  const b=await c.req.json().catch(()=>({}));
+  const name=String(b.name??old.name).trim(),slug=slugify(String(b.slug??old.slug)),description=String(b.description??old.description).trim(),intro=String(b.intro??old.intro??"").trim();
+  if(!name||!slug||!description)return err(c,400,"INVALID_CLUSTER","Name, slug, and description are required.");
+  try{
+    await sqlite.execute("UPDATE topic_clusters SET name=?,slug=?,description=?,intro=?,updated_at=CURRENT_TIMESTAMP WHERE id=?",[name,slug,description,intro||null,id]);
+    return c.json({data:(await sqlite.execute("SELECT * FROM topic_clusters WHERE id=?",[id])).rows[0]});
+  }catch{return err(c,409,"CLUSTER_EXISTS","Cluster name or slug already exists.");}
+});
+
+router.put("/clusters/:id/items",requireAuth,async c=>{
+  await initDatabase();
+  const id=Number(c.req.param("id"));
+  const exists=(await sqlite.execute("SELECT id FROM topic_clusters WHERE id=? LIMIT 1",[id])).rows.length>0;
+  if(!exists)return err(c,404,"CLUSTER_NOT_FOUND","Topic cluster not found.");
+  const b=await c.req.json().catch(()=>({}));
+  const items=Array.isArray(b.items)?b.items:[];
+  await sqlite.execute("DELETE FROM topic_cluster_items WHERE cluster_id=?",[id]);
+  for(let position=0;position<items.length;position++){
+    const item=items[position]||{},type=item.item_type==="project"?"project":"post",itemId=Number(item.item_id),role=item.role==="pillar"?"pillar":"supporting";
+    if(!Number.isFinite(itemId)||itemId<=0)continue;
+    await sqlite.execute("INSERT OR IGNORE INTO topic_cluster_items(cluster_id,item_type,item_id,role,position) VALUES(?,?,?,?,?)",[id,type,itemId,role,Number(item.position)||position+1]);
+  }
+  return c.json({data:{items:(await sqlite.execute("SELECT item_type,item_id,role,position FROM topic_cluster_items WHERE cluster_id=? ORDER BY position",[id])).rows}});
+});
+
+router.delete("/clusters/:id",requireAuth,async c=>{
+  await initDatabase();
+  const r=await sqlite.execute("DELETE FROM topic_clusters WHERE id=?",[Number(c.req.param("id"))]);
+  if(!(r as any).rowsAffected)return err(c,404,"CLUSTER_NOT_FOUND","Topic cluster not found.");
+  return c.json({data:{deleted:true}});
+});
+
 router.get("/clusters/:slug",async c=>{
   await initDatabase();
   const cluster=(await sqlite.execute("SELECT id,name,slug,description,intro FROM topic_clusters WHERE slug=? LIMIT 1",[c.req.param("slug")])).rows[0] as any;
