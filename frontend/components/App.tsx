@@ -13,7 +13,7 @@ function AdminShell({ children }: { children: any }) {
   const sections=[
     {title:"Content",items:[["/admin","Dashboard"],["/admin/posts","Posts"],["/admin/research","Research"]]},
     {title:"Resources",items:[["/admin/tools","Tools"],["/admin/projects","Projects"],["/admin/media","Media"]]},
-    {title:"Taxonomy",items:[["/admin/categories","Categories"],["/admin/tags","Tags"],["/admin/technologies","Technologies"]]},
+    {title:"Taxonomy",items:[["/admin/clusters","Topic clusters"],["/admin/categories","Categories"],["/admin/tags","Tags"],["/admin/technologies","Technologies"]]},
   ];
   useEffect(()=>{
     fetch("/api/auth/me",{credentials:"include"})
@@ -573,6 +573,64 @@ function TaxonomyManager({kind}:{kind:"categories"|"tags"|"technologies"}){
         <div className="flex gap-2 pt-1"><button className="rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-medium text-white">{editing?"Update":"Add"}</button>{editing&&<button type="button" onClick={reset} className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm">Cancel</button>}</div>
       </form>
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"><div className="border-b border-slate-200 px-5 py-3 text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">{rows.length} {rows.length===1?"item":"items"}</div>{rows.length?rows.map(x=><div key={x.id} className="p-5 flex items-center justify-between gap-4 border-b last:border-0 border-slate-100"><div><div className="font-medium text-slate-950">{x.name}</div><div className="mt-1 text-xs text-slate-400">{x.slug}</div></div><div className="flex gap-3 text-sm"><button onClick={()=>edit(x)} className="text-slate-600 hover:text-slate-950">Edit</button><button onClick={async()=>{if(confirm("Delete this item?")){await apiFetch("/api/taxonomy/"+kind+"/"+x.id,{method:"DELETE"});load()}}} className="text-red-600">Delete</button></div></div>):<div className="p-10"><EmptyState title="Nothing here yet." /></div>}</div>
+    </div>
+  </AdminShell>
+}
+
+function ClusterManager(){
+  const [rows,setRows]=useState<any[]>([]),[posts,setPosts]=useState<any[]>([]),[projects,setProjects]=useState<any[]>([]),[editing,setEditing]=useState<any>(null),[form,setForm]=useState<any>({name:"",slug:"",description:"",intro:""}),[selected,setSelected]=useState<Record<string,boolean>>({}),[roles,setRoles]=useState<Record<string,string>>({}),[error,setError]=useState(""),[saving,setSaving]=useState(false);
+  const load=async()=>{
+    try{
+      const [clusters,postRows,projectRows]=await Promise.all([apiFetch("/api/content/clusters"),apiFetch("/api/posts?status=published&limit=100"),apiFetch("/api/content/projects")]);
+      setRows(clusters);setPosts(postRows);setProjects(projectRows);
+    }catch(e:any){setError(e.message||"Could not load clusters.")}
+  };
+  useEffect(()=>{load()},[]);
+  const reset=()=>{setEditing(null);setForm({name:"",slug:"",description:"",intro:""});setSelected({});setRoles({});setError("")};
+  const edit=async(x:any)=>{
+    setEditing(x);setForm({name:x.name,slug:x.slug,description:x.description||"",intro:x.intro||""});setError("");
+    try{
+      const detail=await apiFetch("/api/content/clusters/"+x.slug);
+      const next:any={},nextRoles:any={};
+      (detail.posts||[]).forEach((p:any)=>{const k="post:"+p.id;next[k]=true;nextRoles[k]=p.role||"supporting"});
+      (detail.projects||[]).forEach((p:any)=>{const k="project:"+p.id;next[k]=true;nextRoles[k]=p.role||"supporting"});
+      setSelected(next);setRoles(nextRoles);
+    }catch(e:any){setSelected({});setRoles({});setError(e.message||"Could not load cluster items.")}
+  };
+  const toggle=(type:string,id:number)=>setSelected(v=>{const k=type+":"+id;const next={...v};if(next[k]){delete next[k];setRoles(r=>{const nr={...r};delete nr[k];return nr})}else{next[k]=true;setRoles(r=>({...r,[k]:"supporting"}))}return next});
+  const save=async(e:any)=>{
+    e.preventDefault();setSaving(true);setError("");
+    try{
+      const saved=await apiFetch(editing?"/api/content/clusters/"+editing.id:"/api/content/clusters",{method:editing?"PUT":"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(form)});
+      const cluster=saved;
+      const items=Object.keys(selected).map((key,index)=>{const [item_type,id]=key.split(":");return {item_type,item_id:Number(id),role:roles[key]==="pillar"?"pillar":"supporting",position:index+1}});
+      await apiFetch("/api/content/clusters/"+cluster.id+"/items",{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({items})});
+      reset();await load();
+    }catch(e:any){setError(e.message||"Could not save cluster.");}finally{setSaving(false)}
+  };
+  return <AdminShell>
+    <div><div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-teal-700">Content strategy</div><h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">Topic clusters</h1><p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">Build durable topic paths from pillar articles to supporting notes and projects. These relationships also power public topic hubs.</p></div>
+    <div className="mt-7 grid lg:grid-cols-[360px_1fr] gap-6 items-start">
+      <form onSubmit={save} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-3">
+        <div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">{editing?"Edit cluster":"Add cluster"}</div>
+        <input required value={form.name} onChange={e=>setForm((v:any)=>({...v,name:e.target.value}))} placeholder="Cluster name" className="w-full rounded-xl border border-slate-200 px-3 py-2.5"/>
+        <input value={form.slug} onChange={e=>setForm((v:any)=>({...v,slug:e.target.value}))} placeholder="Slug (optional)" className="w-full rounded-xl border border-slate-200 px-3 py-2.5"/>
+        <textarea required value={form.description} onChange={e=>setForm((v:any)=>({...v,description:e.target.value}))} placeholder="Description" rows={3} className="w-full rounded-xl border border-slate-200 px-3 py-2.5"/>
+        <textarea value={form.intro} onChange={e=>setForm((v:any)=>({...v,intro:e.target.value}))} placeholder="Intro shown on the public hub" rows={5} className="w-full rounded-xl border border-slate-200 px-3 py-2.5"/>
+        <div className="pt-2 text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">Assign content</div>
+        <div className="max-h-[460px] overflow-y-auto rounded-xl border border-slate-200 p-2">
+          <div className="px-2 pb-2 pt-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">Articles</div>
+          {posts.map((p:any)=>{const k="post:"+p.id,checked=!!selected[k];return <label key={k} className="flex items-start gap-2 rounded-lg px-2 py-2 hover:bg-slate-50"><input type="checkbox" checked={checked} onChange={()=>toggle("post",p.id)} className="mt-1"/><span className="min-w-0 flex-1 text-sm text-slate-700">{p.title}{checked&&<select value={roles[k]||"supporting"} onChange={e=>setRoles(v=>({...v,[k]:e.target.value}))} onClick={e=>e.stopPropagation()} className="ml-2 rounded-md border border-slate-200 px-1.5 py-1 text-[11px] text-slate-600"><option value="pillar">Pillar</option><option value="supporting">Supporting</option></select>}</span></label>})}
+          <div className="mt-2 border-t border-slate-100 px-2 pb-2 pt-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">Projects</div>
+          {projects.map((p:any)=>{const k="project:"+p.id,checked=!!selected[k];return <label key={k} className="flex items-start gap-2 rounded-lg px-2 py-2 hover:bg-slate-50"><input type="checkbox" checked={checked} onChange={()=>toggle("project",p.id)} className="mt-1"/><span className="min-w-0 flex-1 text-sm text-slate-700">{p.name}{checked&&<select value={roles[k]||"supporting"} onChange={e=>setRoles(v=>({...v,[k]:e.target.value}))} onClick={e=>e.stopPropagation()} className="ml-2 rounded-md border border-slate-200 px-1.5 py-1 text-[11px] text-slate-600"><option value="pillar">Pillar</option><option value="supporting">Supporting</option></select>}</span></label>})}
+        </div>
+        {error&&<p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
+        <div className="flex gap-2 pt-1"><button disabled={saving} className="rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-medium text-white disabled:opacity-50">{saving?"Saving…":editing?"Update cluster":"Create cluster"}</button>{editing&&<button type="button" onClick={reset} className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm">Cancel</button>}</div>
+      </form>
+      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div className="border-b border-slate-200 px-5 py-3 text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">{rows.length} {rows.length===1?"cluster":"clusters"}</div>
+        {rows.length?rows.map((x:any)=><div key={x.id} className="border-b border-slate-100 p-5 last:border-0"><div className="flex items-start justify-between gap-4"><div className="min-w-0"><div className="font-medium text-slate-950">{x.name}</div><div className="mt-1 text-xs text-slate-400">/topics/{x.slug}</div><p className="mt-2 text-sm leading-6 text-slate-600">{x.description}</p></div><div className="flex shrink-0 gap-3 text-sm"><button onClick={()=>edit(x)} className="text-slate-600 hover:text-slate-950">Edit</button><button onClick={async()=>{if(confirm("Delete this cluster?")){await apiFetch("/api/content/clusters/"+x.id,{method:"DELETE"});load()}}} className="text-red-600">Delete</button></div></div></div>):<div className="p-10"><EmptyState title="No topic clusters yet." description="Create a cluster to connect related articles and projects." /></div>}
+      </div>
     </div>
   </AdminShell>
 }
@@ -1166,9 +1224,14 @@ function ArticleActions(){
   return <div className="mt-5 flex flex-wrap gap-2"><button type="button" className="vl-action" onClick={copy}>{copied?"Copied link":"Copy link"}</button><button type="button" className="vl-action" onClick={share}>Share</button></div>;
 }
 function PostPublic({slug}:{slug:string}){
-  const [p,setP]=useState<any>(null);
+  const [p,setP]=useState<any>(null),[clusters,setClusters]=useState<any[]>([]);
   const creatorSettings=useCreatorSettings();
-  useEffect(()=>{apiFetch("/api/posts/slug/"+encodeURIComponent(slug)).then(setP).catch(()=>setP(false))},[slug]);
+  useEffect(()=>{
+    apiFetch("/api/posts/slug/"+encodeURIComponent(slug)).then(async(row:any)=>{
+      setP(row);
+      try{setClusters(await apiFetch("/api/content/posts/"+row.id+"/clusters"))}catch{setClusters([])}
+    }).catch(()=>setP(false));
+  },[slug]);
   if(p===false)return siteShell(<main className="max-w-3xl mx-auto px-5 py-24"><EmptyState title="Post not found" description="The article may have moved or is no longer published." /></main>);
   if(!p)return siteShell(<main className="max-w-3xl mx-auto px-5 py-24 text-sm text-slate-500">Loading article…</main>);
 
@@ -1228,6 +1291,11 @@ function PostPublic({slug}:{slug:string}){
             </div>
           </div>}
 
+          {clusters.length>0&&<section className="mt-10 sm:mt-12 max-w-3xl border-t border-slate-200 pt-7">
+            <SectionHeader eyebrow="Part of a topic hub" title="Continue through the subject" description="This article is part of a connected reading path."/>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">{clusters.map((x:any)=><a key={x.id} href={"/topics/"+x.slug} className="group rounded-2xl border border-slate-200 bg-slate-50/70 p-4 hover:bg-white hover:border-slate-300"><div className="text-sm font-semibold text-slate-950 group-hover:text-teal-800">{x.name}</div><p className="mt-1 text-xs leading-5 text-slate-500">{x.description}</p><span className="mt-3 inline-block text-xs font-semibold text-slate-500">Open topic hub →</span></a>)}</div>
+          </section>}
+
           {p.related_posts?.length>0&&<section className="mt-12 sm:mt-14 border-t border-slate-200 pt-8">
             <SectionHeader eyebrow="Continue reading" title="Related articles"/>
             <div className="mt-5 grid md:grid-cols-2 gap-5">{p.related_posts.slice(0,2).map((x:any)=><PostCard key={x.id} post={x}/>)}</div>
@@ -1261,13 +1329,16 @@ function CollectionPublic({kind}:{kind:"tools"|"projects"|"research"}){
   </main></>);
 }
 function DetailPublic({kind,slug}:{kind:"tools"|"projects",slug:string}){
-  const [x,setX]=useState<any>(null);
+  const [x,setX]=useState<any>(null),[clusters,setClusters]=useState<any[]>([]);
   useEffect(()=>{
     apiFetch("/api/content/"+kind).then(async(rows:any[])=>{
       const found=rows.find(r=>r.slug===slug);
       if(!found){setX(false);return}
-      if(kind==="projects"){setX(await apiFetch("/api/content/projects/"+found.id));}
-      else setX(found);
+      if(kind==="projects"){
+        const project=await apiFetch("/api/content/projects/"+found.id);
+        setX(project);
+        try{setClusters(await apiFetch("/api/content/projects/"+found.id+"/clusters"))}catch{setClusters([])}
+      } else setX(found);
     }).catch(()=>setX(false));
   },[kind,slug]);
   if(!x)return siteShell(<main className="max-w-3xl mx-auto px-5 py-24 text-slate-500">{x===false?<EmptyState title="Not found" description="This item may have moved or is no longer published."/>:"Loading…"}</main>);
@@ -1355,6 +1426,11 @@ function DetailPublic({kind,slug}:{kind:"tools"|"projects",slug:string}){
           <SectionHeader eyebrow="Roadmap" title="Where CronDeck goes next"/>
           <div className="mt-6 grid gap-3 md:grid-cols-2 lg:grid-cols-3">{roadmap.map(([name,copy])=><div key={name} className="rounded-2xl border border-slate-200 bg-white p-5"><div className="text-sm font-semibold text-slate-950">{name}</div><p className="mt-2 text-xs leading-5 text-slate-500">{copy}</p></div>)}</div>
         </section>
+
+        {clusters.length>0&&<section className="mt-14 border-t border-slate-200 pt-10">
+          <SectionHeader eyebrow="Topic coverage" title="CronDeck in the wider lab" description="Follow the engineering notes connected to this project."/>
+          <div className="mt-5 grid gap-3 sm:grid-cols-2">{clusters.map((x:any)=><a key={x.id} href={"/topics/"+x.slug} className="group rounded-2xl border border-slate-200 bg-slate-50/70 p-5 hover:bg-white hover:border-slate-300"><Meta><span>{x.role==="pillar"?"Pillar project":"Related project"}</span></Meta><h2 className="mt-2 font-semibold text-slate-950 group-hover:text-teal-800">{x.name}</h2><p className="mt-1 text-sm leading-6 text-slate-600">{x.description}</p><span className="mt-4 inline-block text-xs font-semibold text-slate-500">Explore topic hub →</span></a>)}</div>
+        </section>}
 
         <div className="mt-14 flex flex-wrap gap-3 border-t border-slate-200 pt-8">
           <a href={x.demo_url} target="_blank" rel="noreferrer" className="rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-medium text-white">Open CronDeck ↗</a>
@@ -1497,6 +1573,7 @@ export function App(){
   if(path==="/admin/tools"||path==="/admin/tools/new"||/^\/admin\/tools\/\d+\/edit$/.test(path)) return <EntityManager kind="tools"/>;
   if(path==="/admin/projects"||path==="/admin/projects/new"||/^\/admin\/projects\/\d+\/edit$/.test(path)) return <EntityManager kind="projects"/>;
   if(path==="/admin/research"||path==="/admin/research/new"||/^\/admin\/research\/\d+\/edit$/.test(path)) return <ResearchManager/>;
+  if(path==="/admin/clusters") return <ClusterManager/>;
   if(path==="/admin/media") return <MediaManager/>;
   if(path==="/admin/settings") return <SettingsManager/>;
   if(path==="/admin"||path.startsWith("/admin/")) return <Dashboard/>;
