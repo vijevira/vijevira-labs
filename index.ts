@@ -141,6 +141,13 @@ async function resolveSeo(c:any){
     ogType:"website"
   };
   seo.author=creator.name;
+  const markNotFound=()=>{
+    seo.notFound=true;
+    seo.title="Page not found — Vijevira Labs";
+    seo.description="The page you requested could not be found.";
+    seo.robots="noindex,follow";
+    seo.jsonLd=undefined;
+  };
   const ga=String(publicSettings.ga_measurement_id||"").trim().toUpperCase();
   if(/^G-[A-Z0-9]+$/.test(ga))seo.gaMeasurementId=ga;
   const verification=String(publicSettings.google_site_verification||"").trim();
@@ -250,6 +257,8 @@ async function resolveSeo(c:any){
           breadcrumbLd(origin,[{name:"Home",path:"/"},{name:"Blog",path:"/blog"},{name:row.title,path}])
         ]
       };
+    } else {
+      markNotFound();
     }
     return seo;
   }
@@ -269,6 +278,8 @@ async function resolveSeo(c:any){
           breadcrumbLd(origin,[{name:"Home",path:"/"},{name:"Tools",path:"/tools"},{name:row.name,path}])
         ]
       };
+    } else {
+      markNotFound();
     }
     return seo;
   }
@@ -297,6 +308,8 @@ async function resolveSeo(c:any){
           breadcrumbLd(origin,[{name:"Home",path:"/"},{name:"Projects",path:"/projects"},{name:row.name,path}])
         ]
       };
+    } else {
+      markNotFound();
     }
     return seo;
   }
@@ -321,6 +334,8 @@ async function resolveSeo(c:any){
           breadcrumbLd(origin,[{name:"Home",path:"/"},{name:"Research",path:"/research"},{name:row.title,path}])
         ]
       };
+    } else {
+      markNotFound();
     }
     return seo;
   }
@@ -351,6 +366,8 @@ async function resolveSeo(c:any){
           breadcrumbLd(origin,[{name:"Home",path:"/"},{name:"Topics",path:"/blog"},{name:row.name,path}])
         ]
       };
+    } else {
+      markNotFound();
     }
     return seo;
   }
@@ -368,17 +385,24 @@ async function resolveSeo(c:any){
           breadcrumbLd(origin,[{name:"Home",path:"/"},{name:"Tags",path:"/blog"},{name:row.name,path}])
         ]
       };
+    } else {
+      markNotFound();
     }
     return seo;
   }
 
+  markNotFound();
+  seo.title="Page not found — Vijevira Labs";
+  seo.description="The page you requested could not be found.";
   seo.robots="noindex,follow";
+  seo.jsonLd=undefined;
   return seo;
 }
 
 app.get("*", async (c) => {
   await initDatabase();
-  return c.html(Root(await resolveSeo(c)));
+  const seo=await resolveSeo(c);
+  return c.html(Root(seo),seo.notFound?404:200);
 });
 
 app.onError((err) => Promise.reject(err));
